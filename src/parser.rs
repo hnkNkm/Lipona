@@ -135,8 +135,10 @@ fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseErro
 
     let mut body = Vec::new();
     for item in inner {
-        if item.as_rule() == Rule::stmt {
-            body.push(parse_stmt(item)?);
+        match item.as_rule() {
+            Rule::stmt => body.push(parse_stmt(item)?),
+            Rule::EOI => {}
+            rule => return Err(ParseError::UnexpectedRule(rule)),
         }
     }
 
@@ -284,10 +286,13 @@ fn parse_func_call(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError
 
     let mut args = Vec::new();
     for item in inner {
-        if item.as_rule() == Rule::arg_list {
-            for arg in item.into_inner() {
-                args.push(parse_expr(arg)?);
+        match item.as_rule() {
+            Rule::arg_list => {
+                for arg in item.into_inner() {
+                    args.push(parse_expr(arg)?);
+                }
             }
+            rule => return Err(ParseError::UnexpectedRule(rule)),
         }
     }
 
@@ -296,9 +301,14 @@ fn parse_func_call(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError
 
 fn parse_number(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     let s = pair.as_str();
-    s.parse::<f64>()
-        .map(Expr::Number)
-        .map_err(|_| ParseError::InvalidNumber(s.to_string()))
+    let n = s.parse::<f64>()
+        .map_err(|_| ParseError::InvalidNumber(s.to_string()))?;
+
+    if !n.is_finite() {
+        return Err(ParseError::InvalidNumber(s.to_string()));
+    }
+
+    Ok(Expr::Number(n))
 }
 
 fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {

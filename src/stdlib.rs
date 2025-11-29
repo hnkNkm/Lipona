@@ -4,6 +4,7 @@
 //! list operations, and map operations.
 
 use std::collections::HashMap;
+use std::io::{self, Write};
 
 use crate::interpreter::{RuntimeError, Value, F64_SAFE_INT_MAX};
 
@@ -66,13 +67,15 @@ impl Default for StdLib {
 
 /// toki e (x) - print
 fn stdlib_toki(args: Vec<Value>) -> Result<Value, RuntimeError> {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
     for (i, arg) in args.iter().enumerate() {
         if i > 0 {
-            print!(" ");
+            let _ = write!(handle, " ");
         }
-        print!("{arg}");
+        let _ = write!(handle, "{arg}");
     }
-    println!();
+    let _ = writeln!(handle);
     Ok(Value::Ala)
 }
 
@@ -112,14 +115,8 @@ fn stdlib_nanpa_len(args: Vec<Value>) -> Result<Value, RuntimeError> {
             let len = if abs < 1.0 {
                 1 // 0.xxx is considered 1 digit for integer part
             } else {
-                // Count digits iteratively to avoid floating-point precision issues with log10
-                let mut count = 0usize;
-                let mut val = abs.trunc();
-                while val >= 1.0 {
-                    val /= 10.0;
-                    count += 1;
-                }
-                count.max(1)
+                // Use string formatting to accurately count digits
+                format!("{:.0}", abs.trunc()).len()
             };
             Ok(Value::Number(len as f64))
         }

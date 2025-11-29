@@ -47,11 +47,11 @@ fn main() {
 
 fn run(code: &str) -> Result<(), String> {
     // Parse
-    let program = parse(code).map_err(|e| format!("{e}"))?;
+    let program = parse(code).map_err(|e| e.to_string())?;
 
     // Interpret
     let mut interpreter = Interpreter::new();
-    interpreter.run(&program).map_err(|e| format!("{e}"))?;
+    interpreter.run(&program).map_err(|e| e.to_string())?;
 
     Ok(())
 }
