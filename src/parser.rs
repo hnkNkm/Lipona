@@ -199,6 +199,8 @@ fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
         match comp_kind.as_str() {
             "suli" => BinOp::Gt,
             "lili" => BinOp::Lt,
+            "suli_sama" => BinOp::Ge,
+            "lili_sama" => BinOp::Le,
             "sama" => BinOp::Eq,
             _ => return Err(ParseError::UnexpectedRule(Rule::comp_kind)),
         }

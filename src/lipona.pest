@@ -57,7 +57,7 @@ comparison = {
 }
 
 comp_op = { "li" ~ comp_kind ~ "e" }
-comp_kind = { "suli" | "lili" | "sama" }
+comp_kind = { "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" }
 
 add_expr = { mul_expr ~ ((add_op) ~ mul_expr)* }
 add_op = { "+" | "-" }
@@ -98,7 +98,7 @@ ident = @{ !keyword ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 // Keywords (reserved)
 keyword = {
     "li" | "e" | "la" | "open" | "pini" | "ilo" | "pali" | "pana"
-    | "wile" | "taso" | "suli" | "lili" | "sama" | "jo" | "lon" | "ala"
+    | "wile" | "taso" | "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" | "jo" | "lon" | "ala"
 }
 
 // Whitespace and comments

@@ -2,12 +2,9 @@
 // Calculates and prints the first 20 Fibonacci numbers
 
 ilo fib li pali e (n) la open
-    // Base cases: fib(0) = 0, fib(1) = 1
-    n li sama e 0 la open
-        pana e 0
-    pini
-    n li sama e 1 la open
-        pana e 1
+    // Base case: fib(0) = 0, fib(1) = 1
+    n li lili_sama e 1 la open
+        pana e n
     pini
     // Recursive case
     a li jo e fib e (n - 1)

@@ -14,6 +14,8 @@ pub enum BinOp {
     Div,      // /
     Gt,       // suli (>)
     Lt,       // lili (<)
+    Ge,       // suli_sama (>=)
+    Le,       // lili_sama (<=)
     Eq,       // sama (==)
 }
 

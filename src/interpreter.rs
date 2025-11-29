@@ -361,6 +361,12 @@ impl Interpreter {
             (BinOp::Lt, Value::Number(a), Value::Number(b)) => {
                 Ok(if a < b { Value::Bool } else { Value::Ala })
             }
+            (BinOp::Ge, Value::Number(a), Value::Number(b)) => {
+                Ok(if a >= b { Value::Bool } else { Value::Ala })
+            }
+            (BinOp::Le, Value::Number(a), Value::Number(b)) => {
+                Ok(if a <= b { Value::Bool } else { Value::Ala })
+            }
             (BinOp::Eq, a, b) => Ok(if a == b { Value::Bool } else { Value::Ala }),
 
             // Type errors
