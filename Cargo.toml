@@ -2,5 +2,10 @@
 name = "lipona"
 version = "0.1.0"
 edition = "2024"
+description = "A minimal programming language based on Toki Pona grammar"
+license = "MIT"
 
 [dependencies]
+pest = "2.7"
+pest_derive = "2.7"
+thiserror = "2"

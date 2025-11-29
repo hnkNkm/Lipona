@@ -1,0 +1,96 @@
+// Lipona Grammar - Toki Pona-based Programming Language
+
+// Entry point
+program = { SOI ~ stmt* ~ EOI }
+
+// Statements
+stmt = {
+    func_def
+    | if_stmt
+    | while_stmt
+    | return_stmt
+    | assign_stmt
+    | expr_stmt
+}
+
+// Function definition: ilo NAME li pali e (params) la open ... pini
+func_def = {
+    "ilo" ~ ident ~ "li" ~ "pali" ~ "e" ~ "(" ~ param_list? ~ ")" ~ "la" ~ "open" ~
+    stmt* ~
+    "pini"
+}
+
+param_list = { ident ~ ("," ~ ident)* }
+
+// If statement: Cond la open ... pini taso open ... pini
+if_stmt = {
+    expr ~ "la" ~ "open" ~
+    stmt* ~
+    "pini" ~
+    ("taso" ~ "open" ~ stmt* ~ "pini")?
+}
+
+// While statement: wile Cond la open ... pini
+while_stmt = {
+    "wile" ~ expr ~ "la" ~ "open" ~
+    stmt* ~
+    "pini"
+}
+
+// Return statement: pana e Expr
+return_stmt = { "pana" ~ "e" ~ expr }
+
+// Assignment: x li jo e Expr
+assign_stmt = { ident ~ "li" ~ "jo" ~ "e" ~ expr }
+
+// Expression statement (for function calls without assignment)
+expr_stmt = { expr }
+
+// Expressions
+expr = { comparison }
+
+comparison = {
+    add_expr ~ "li" ~ "suli" ~ "e" ~ add_expr  // >
+    | add_expr ~ "li" ~ "lili" ~ "e" ~ add_expr  // <
+    | add_expr ~ "li" ~ "sama" ~ "e" ~ add_expr  // ==
+    | add_expr
+}
+
+add_expr = { mul_expr ~ ((add_op) ~ mul_expr)* }
+add_op = { "+" | "-" }
+
+mul_expr = { unary_expr ~ ((mul_op) ~ unary_expr)* }
+mul_op = { "*" | "/" }
+
+unary_expr = { "-"? ~ primary }
+
+primary = {
+    func_call
+    | "(" ~ expr ~ ")"
+    | number
+    | string
+    | boolean
+    | ident
+}
+
+// Function call: NAME e (args)
+func_call = { ident ~ "e" ~ "(" ~ arg_list? ~ ")" }
+arg_list = { expr ~ ("," ~ expr)* }
+
+// Literals
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+boolean = { "lon" | "ala" }
+
+// Identifier
+ident = @{ !keyword ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// Keywords (reserved)
+keyword = {
+    "li" | "e" | "la" | "open" | "pini" | "ilo" | "pali" | "pana"
+    | "wile" | "taso" | "suli" | "lili" | "sama" | "jo" | "lon" | "ala"
+}
+
+// Whitespace and comments
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }

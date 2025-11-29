@@ -1,0 +1,74 @@
+/// Binary operators
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinOp {
+    Add,      // +
+    Sub,      // -
+    Mul,      // *
+    Div,      // /
+    Gt,       // suli (>)
+    Lt,       // lili (<)
+    Eq,       // sama (==)
+}
+
+/// Expression AST node
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expr {
+    /// Number literal: 10, 3.14
+    Number(f64),
+    /// String literal: "pona"
+    String(String),
+    /// Boolean: lon (true), ala (false/null)
+    Bool(bool),
+    /// Variable reference
+    Var(String),
+    /// Binary operation
+    Binary {
+        left: Box<Expr>,
+        op: BinOp,
+        right: Box<Expr>,
+    },
+    /// Unary negation
+    Neg(Box<Expr>),
+    /// Function call: NAME e (args)
+    FuncCall {
+        name: String,
+        args: Vec<Expr>,
+    },
+}
+
+/// Statement AST node
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stmt {
+    /// Assignment: x li jo e Expr
+    Assign {
+        target: String,
+        value: Expr,
+    },
+    /// If statement: Cond la open ... pini taso open ... pini
+    If {
+        cond: Expr,
+        then_block: Block,
+        else_block: Option<Block>,
+    },
+    /// While loop: wile Cond la open ... pini
+    While {
+        cond: Expr,
+        body: Block,
+    },
+    /// Function definition: ilo NAME li pali e (params) la open ... pini
+    FuncDef {
+        name: String,
+        params: Vec<String>,
+        body: Block,
+    },
+    /// Return statement: pana e Expr
+    Return(Expr),
+    /// Expression statement (for side effects like function calls)
+    Expr(Expr),
+}
+
+/// A block is a sequence of statements
+pub type Block = Vec<Stmt>;
+
+/// A program is a sequence of statements
+pub type Program = Vec<Stmt>;
