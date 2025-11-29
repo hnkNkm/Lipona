@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::ast::{BinOp, Block, Expr, Program, Stmt};
+use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart};
 use crate::stdlib::StdLib;
 
 /// Runtime value
@@ -278,7 +278,7 @@ impl Interpreter {
     fn eval_expr(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
         match expr {
             Expr::Number(n) => Ok(Value::Number(*n)),
-            Expr::String(s) => Ok(Value::String(s.clone())),
+            Expr::TemplateString(parts) => self.eval_template_string(parts),
             // In Lipona, `lon` (true) is Value::Bool, `ala` (false) is Value::Ala
             Expr::Bool(b) => Ok(if *b { Value::Bool } else { Value::Ala }),
             Expr::Var(name) => self
@@ -299,6 +299,20 @@ impl Interpreter {
             Expr::Binary { left, op, right } => self.eval_binary(left, op, right),
             Expr::FuncCall { name, args } => self.call_function(name, args),
         }
+    }
+
+    fn eval_template_string(&mut self, parts: &[StringPart]) -> Result<Value, RuntimeError> {
+        let mut result = String::new();
+        for part in parts {
+            match part {
+                StringPart::Literal(s) => result.push_str(s),
+                StringPart::Interpolation(expr) => {
+                    let value = self.eval_expr(expr)?;
+                    result.push_str(&format!("{value}"));
+                }
+            }
+        }
+        Ok(Value::String(result))
     }
 
     fn eval_binary(

@@ -82,9 +82,14 @@ arg_list = { expr ~ ("," ~ expr)* }
 
 // Literals
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
-string = @{ "\"" ~ string_content* ~ "\"" }
-string_content = { escape | (!("\"" | "\\") ~ ANY) }
-escape = { "\\" ~ ("n" | "t" | "r" | "\\" | "\"") }
+
+// String with optional interpolation: "Hello, {name}!"
+string = { "\"" ~ string_part* ~ "\"" }
+string_part = { interpolation | string_literal }
+interpolation = { "{" ~ expr ~ "}" }
+string_literal = @{ (escape | (!("\"" | "\\" | "{") ~ ANY))+ }
+escape = { "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "{" | "}") }
+
 boolean = { "lon" | "ala" }
 
 // Identifier

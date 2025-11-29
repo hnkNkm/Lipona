@@ -17,13 +17,22 @@ pub enum BinOp {
     Eq,       // sama (==)
 }
 
+/// A part of a template string
+#[derive(Debug, Clone, PartialEq)]
+pub enum StringPart {
+    /// Literal text
+    Literal(String),
+    /// Interpolated expression: {expr}
+    Interpolation(Box<Expr>),
+}
+
 /// Expression AST node
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// Number literal: 10, 3.14
     Number(f64),
-    /// String literal: "pona"
-    String(String),
+    /// Template string: "Hello, {name}!"
+    TemplateString(Vec<StringPart>),
     /// Boolean: lon (true), ala (false/null)
     Bool(bool),
     /// Variable reference

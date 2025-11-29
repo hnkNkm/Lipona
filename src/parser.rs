@@ -7,7 +7,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use crate::ast::{BinOp, Block, Expr, Program, Stmt};
+use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart};
 
 #[derive(Parser)]
 #[grammar = "lipona.pest"]
@@ -23,8 +23,6 @@ pub enum ParseError {
     InvalidNumber(String),
     #[error("Invalid boolean: {0}")]
     InvalidBoolean(String),
-    #[error("Invalid string literal: {0}")]
-    InvalidString(String),
     #[error("Parse error: missing inner element in {0:?}")]
     MissingInner(Rule),
 }
@@ -312,15 +310,30 @@ fn parse_number(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
 }
 
 fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
-    let s = pair.as_str();
-    let content = s
-        .strip_prefix('"')
-        .and_then(|s| s.strip_suffix('"'))
-        .ok_or_else(|| ParseError::InvalidString(s.to_string()))?;
+    let mut parts = Vec::new();
 
-    // Process escape sequences
-    let unescaped = unescape_string(content);
-    Ok(Expr::String(unescaped))
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::string_part => {
+                let part = inner.into_inner().next().ok_or(ParseError::MissingInner(Rule::string_part))?;
+                match part.as_rule() {
+                    Rule::interpolation => {
+                        let expr_pair = part.into_inner().next().ok_or(ParseError::MissingInner(Rule::interpolation))?;
+                        let expr = parse_expr(expr_pair)?;
+                        parts.push(StringPart::Interpolation(Box::new(expr)));
+                    }
+                    Rule::string_literal => {
+                        let unescaped = unescape_string(part.as_str());
+                        parts.push(StringPart::Literal(unescaped));
+                    }
+                    rule => return Err(ParseError::UnexpectedRule(rule)),
+                }
+            }
+            rule => return Err(ParseError::UnexpectedRule(rule)),
+        }
+    }
+
+    Ok(Expr::TemplateString(parts))
 }
 
 fn unescape_string(s: &str) -> String {
