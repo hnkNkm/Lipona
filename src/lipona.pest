@@ -84,18 +84,18 @@ arg_list = { expr ~ ("," ~ expr)* }
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 
 // String with optional interpolation: "Hello, {name}!"
-string = { "\"" ~ string_part* ~ "\"" }
-string_part = { interpolation | string_literal }
-interpolation = { "{" ~ expr ~ "}" }
+string = ${ "\"" ~ string_inner* ~ "\"" }
+string_inner = ${ interpolation | string_literal }
+interpolation = { "{" ~ WHITESPACE* ~ expr ~ WHITESPACE* ~ "}" }
 string_literal = @{ (escape | (!("\"" | "\\" | "{") ~ ANY))+ }
-escape = { "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "{" | "}") }
+escape = @{ "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "{" | "}") }
 
 boolean = { "lon" | "ala" }
 
 // Identifier
-ident = @{ !keyword ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+ident = @{ !(keyword ~ !(ASCII_ALPHANUMERIC | "_")) ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
-// Keywords (reserved)
+// Keywords (reserved) - must be followed by non-identifier character
 keyword = {
     "li" | "e" | "la" | "open" | "pini" | "ilo" | "pali" | "pana"
     | "wile" | "taso" | "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" | "jo" | "lon" | "ala"

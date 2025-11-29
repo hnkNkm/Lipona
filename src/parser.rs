@@ -316,8 +316,8 @@ fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::string_part => {
-                let part = inner.into_inner().next().ok_or(ParseError::MissingInner(Rule::string_part))?;
+            Rule::string_inner => {
+                let part = inner.into_inner().next().ok_or(ParseError::MissingInner(Rule::string_inner))?;
                 match part.as_rule() {
                     Rule::interpolation => {
                         let expr_pair = part.into_inner().next().ok_or(ParseError::MissingInner(Rule::interpolation))?;
