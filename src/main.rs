@@ -30,7 +30,7 @@ fn main() {
         match fs::read_to_string(filename) {
             Ok(content) => content,
             Err(e) => {
-                eprintln!("pakala: cannot read file '{}': {}", filename, e);
+                eprintln!("pakala: cannot read file '{filename}': {e}");
                 process::exit(1);
             }
         }
@@ -39,7 +39,7 @@ fn main() {
     match run(&code) {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             process::exit(1);
         }
     }
@@ -47,11 +47,11 @@ fn main() {
 
 fn run(code: &str) -> Result<(), String> {
     // Parse
-    let program = parse(code).map_err(|e| format!("{}", e))?;
+    let program = parse(code).map_err(|e| format!("{e}"))?;
 
     // Interpret
     let mut interpreter = Interpreter::new();
-    interpreter.run(&program).map_err(|e| format!("{}", e))?;
+    interpreter.run(&program).map_err(|e| format!("{e}"))?;
 
     Ok(())
 }

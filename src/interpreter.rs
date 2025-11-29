@@ -47,24 +47,29 @@ impl Value {
     }
 }
 
+/// Maximum safe integer that can be exactly represented in f64 (2^53)
+const F64_SAFE_INT_MAX: f64 = 9_007_199_254_740_992.0;
+const F64_SAFE_INT_MIN: f64 = -9_007_199_254_740_992.0;
+
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Number(n) => {
-                if n.fract() == 0.0 && n.abs() < (i64::MAX as f64) {
+                // Only display as integer if it's a whole number within safe range
+                if n.fract() == 0.0 && *n >= F64_SAFE_INT_MIN && *n <= F64_SAFE_INT_MAX {
                     write!(f, "{}", *n as i64)
                 } else {
-                    write!(f, "{}", n)
+                    write!(f, "{n}")
                 }
             }
-            Value::String(s) => write!(f, "{}", s),
+            Value::String(s) => write!(f, "{s}"),
             Value::Bool(b) => write!(f, "{}", if *b { "lon" } else { "ala" }),
             Value::List(items) => {
-                let strs: Vec<String> = items.iter().map(|v| format!("{}", v)).collect();
+                let strs: Vec<String> = items.iter().map(|v| format!("{v}")).collect();
                 write!(f, "[{}]", strs.join(", "))
             }
             Value::Map(m) => {
-                let strs: Vec<String> = m.iter().map(|(k, v)| format!("{}: {}", k, v)).collect();
+                let strs: Vec<String> = m.iter().map(|(k, v)| format!("{k}: {v}")).collect();
                 write!(f, "{{{}}}", strs.join(", "))
             }
             Value::Ala => write!(f, "ala"),
@@ -93,6 +98,10 @@ pub enum RuntimeError {
     #[allow(dead_code)]
     #[error("pakala: key not found '{0}'")]
     KeyNotFound(String),
+    #[error("pakala: loop iteration limit exceeded (possible infinite loop)")]
+    InfiniteLoop,
+    #[error("pakala: maximum call depth exceeded (possible infinite recursion)")]
+    StackOverflow,
 }
 
 /// Control flow signals
@@ -139,16 +148,15 @@ impl Environment {
         None
     }
 
-    pub fn set(&mut self, name: &str, value: Value) -> bool {
+    pub fn set(&mut self, name: &str, value: Value) {
         for scope in self.scopes.iter_mut().rev() {
             if scope.contains_key(name) {
                 scope.insert(name.to_string(), value);
-                return true;
+                return;
             }
         }
         // If not found, define in current scope
         self.define(name.to_string(), value);
-        true
     }
 }
 
@@ -158,10 +166,17 @@ impl Default for Environment {
     }
 }
 
+/// Maximum iterations for a single while loop
+const MAX_LOOP_ITERATIONS: u64 = 10_000_000;
+
+/// Maximum call stack depth
+const MAX_CALL_DEPTH: usize = 1000;
+
 /// The interpreter
 pub struct Interpreter {
     env: Environment,
     stdlib: StdLib,
+    call_depth: usize,
 }
 
 impl Interpreter {
@@ -169,6 +184,7 @@ impl Interpreter {
         Self {
             env: Environment::new(),
             stdlib: StdLib::new(),
+            call_depth: 0,
         }
     }
 
@@ -204,7 +220,12 @@ impl Interpreter {
                 }
             }
             Stmt::While { cond, body } => {
+                let mut iterations: u64 = 0;
                 while self.eval_expr(cond)?.is_truthy() {
+                    iterations += 1;
+                    if iterations > MAX_LOOP_ITERATIONS {
+                        return Err(RuntimeError::InfiniteLoop);
+                    }
                     if let ControlFlow::Return(v) = self.exec_block(body)? {
                         return Ok(ControlFlow::Return(v));
                     }
@@ -305,7 +326,7 @@ impl Interpreter {
 
             // String concatenation
             (BinOp::Add, Value::String(a), Value::String(b)) => {
-                Ok(Value::String(format!("{}{}", a, b)))
+                Ok(Value::String(format!("{a}{b}")))
             }
 
             // Comparisons
@@ -322,6 +343,19 @@ impl Interpreter {
     }
 
     fn call_function(&mut self, name: &str, args: &[Expr]) -> Result<Value, RuntimeError> {
+        // Check call depth limit
+        self.call_depth += 1;
+        if self.call_depth > MAX_CALL_DEPTH {
+            self.call_depth -= 1;
+            return Err(RuntimeError::StackOverflow);
+        }
+
+        let result = self.call_function_inner(name, args);
+        self.call_depth -= 1;
+        result
+    }
+
+    fn call_function_inner(&mut self, name: &str, args: &[Expr]) -> Result<Value, RuntimeError> {
         // Check stdlib first
         if self.stdlib.has_function(name) {
             let mut evaluated_args = Vec::new();

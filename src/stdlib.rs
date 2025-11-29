@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use crate::interpreter::{RuntimeError, Value};
 
+/// Standard library function signature
+type StdLibFn = fn(Vec<Value>) -> Result<Value, RuntimeError>;
+
 /// Standard library functions
 pub struct StdLib {
-    functions: HashMap<&'static str, fn(Vec<Value>) -> Result<Value, RuntimeError>>,
+    functions: HashMap<&'static str, StdLibFn>,
 }
 
 impl StdLib {
     pub fn new() -> Self {
-        let mut functions: HashMap<&'static str, fn(Vec<Value>) -> Result<Value, RuntimeError>> =
-            HashMap::new();
+        let mut functions: HashMap<&'static str, StdLibFn> = HashMap::new();
 
         // I/O
         functions.insert("toki", stdlib_toki);
@@ -65,7 +67,7 @@ fn stdlib_toki(args: Vec<Value>) -> Result<Value, RuntimeError> {
         if i > 0 {
             print!(" ");
         }
-        print!("{}", arg);
+        print!("{arg}");
     }
     println!();
     Ok(Value::Ala)
@@ -97,9 +99,15 @@ fn stdlib_nanpa_len(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("nanpa_len", &args, 1)?;
     match &args[0] {
         Value::Number(n) => {
+            if n.is_nan() || n.is_infinite() {
+                return Err(RuntimeError::TypeError {
+                    expected: "finite number",
+                    got: format!("{n}"),
+                });
+            }
             let abs = n.abs();
-            let len = if abs == 0.0 {
-                1
+            let len = if abs < 1.0 {
+                1 // 0.xxx is considered 1 digit for integer part
             } else {
                 (abs.log10().floor() as usize) + 1
             };
@@ -287,11 +295,16 @@ fn check_arity(name: &str, args: &[Value], expected: usize) -> Result<(), Runtim
 /// Convert f64 to usize for indexing, validating it's a non-negative integer
 fn to_index(n: f64) -> Result<usize, RuntimeError> {
     if n < 0.0 || n.is_nan() || n.is_infinite() || n.fract() != 0.0 {
-        Err(RuntimeError::TypeError {
+        return Err(RuntimeError::TypeError {
             expected: "non-negative integer",
-            got: format!("{}", n),
-        })
-    } else {
-        Ok(n as usize)
+            got: format!("{n}"),
+        });
     }
+    if n > (usize::MAX as f64) {
+        return Err(RuntimeError::TypeError {
+            expected: "index within bounds",
+            got: format!("{n} exceeds maximum index"),
+        });
+    }
+    Ok(n as usize)
 }

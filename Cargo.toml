@@ -1,7 +1,7 @@
 [package]
 name = "lipona"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 description = "A minimal programming language based on Toki Pona grammar"
 license = "MIT"
 

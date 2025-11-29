@@ -82,7 +82,9 @@ arg_list = { expr ~ ("," ~ expr)* }
 
 // Literals
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
-string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+string = @{ "\"" ~ string_content* ~ "\"" }
+string_content = { escape | (!("\"" | "\\") ~ ANY) }
+escape = { "\\" ~ ("n" | "t" | "r" | "\\" | "\"") }
 boolean = { "lon" | "ala" }
 
 // Identifier

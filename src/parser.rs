@@ -11,13 +11,19 @@ pub struct LiponaParser;
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error("Parse error: {0}")]
-    Pest(#[from] pest::error::Error<Rule>),
+    Pest(Box<pest::error::Error<Rule>>),
     #[error("Unexpected rule: {0:?}")]
     UnexpectedRule(Rule),
     #[error("Invalid number: {0}")]
     InvalidNumber(String),
     #[error("Parse error: missing inner element in {0:?}")]
     MissingInner(Rule),
+}
+
+impl From<pest::error::Error<Rule>> for ParseError {
+    fn from(err: pest::error::Error<Rule>) -> Self {
+        ParseError::Pest(Box::new(err))
+    }
 }
 
 pub fn parse(input: &str) -> Result<Program, ParseError> {
@@ -292,14 +298,43 @@ fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
         .strip_prefix('"')
         .and_then(|s| s.strip_suffix('"'))
         .unwrap_or(s);
-    Ok(Expr::String(content.to_string()))
+
+    // Process escape sequences
+    let unescaped = unescape_string(content);
+    Ok(Expr::String(unescaped))
+}
+
+fn unescape_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('\\') => result.push('\\'),
+                Some('"') => result.push('"'),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 fn parse_boolean(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_str() {
         "lon" => Ok(Expr::Bool(true)),
         "ala" => Ok(Expr::Bool(false)),
-        _ => Ok(Expr::Bool(false)),
+        other => Err(ParseError::InvalidNumber(format!("invalid boolean: {other}"))),
     }
 }
 
