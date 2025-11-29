@@ -155,6 +155,7 @@ impl Environment {
     }
 
     pub fn set(&mut self, name: &str, value: Value) {
+        // Search all scopes from innermost to outermost
         for scope in self.scopes.iter_mut().rev() {
             if scope.contains_key(name) {
                 scope.insert(name.to_string(), value);
@@ -163,6 +164,20 @@ impl Environment {
         }
         // If not found, define in current scope
         self.define(name.to_string(), value);
+    }
+
+    /// Create an isolated environment for function calls.
+    /// Returns saved scopes that must be restored after function execution.
+    pub fn isolate_for_function(&mut self) -> Vec<HashMap<String, Value>> {
+        let saved_scopes = std::mem::take(&mut self.scopes);
+        // Keep only global scope for function execution
+        self.scopes = vec![saved_scopes[0].clone()];
+        saved_scopes
+    }
+
+    /// Restore scopes after function execution.
+    pub fn restore_scopes(&mut self, saved_scopes: Vec<HashMap<String, Value>>) {
+        self.scopes = saved_scopes;
     }
 }
 
@@ -393,20 +408,25 @@ impl Interpreter {
                     });
                 }
 
-                // Evaluate arguments
+                // Evaluate arguments in current environment
                 let evaluated_args = self.eval_args(args)?;
 
-                // Create new scope and bind parameters
+                // Isolate environment for function execution (only global scope visible)
+                let saved_scopes = self.env.isolate_for_function();
+
+                // Create function scope and bind parameters
                 self.env.push_scope();
                 for (param, value) in params.iter().zip(evaluated_args) {
                     self.env.define(param.clone(), value);
                 }
 
-                // Execute function body, ensuring scope is popped even on error
+                // Execute function body
                 let result = self.exec_block_in_current_scope(&body);
-                self.env.pop_scope();
 
-                // Convert result after scope is popped
+                // Restore original scopes
+                self.env.restore_scopes(saved_scopes);
+
+                // Convert result
                 result.map(|cf| match cf {
                     ControlFlow::Return(v) => v,
                     ControlFlow::None => Value::Ala,
