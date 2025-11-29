@@ -84,23 +84,22 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> 
 
     let mut then_block: Block = Vec::new();
     let mut else_block: Option<Block> = None;
-    let mut in_else = false;
 
     for item in inner {
         match item.as_rule() {
             Rule::stmt => {
-                if in_else {
-                    else_block.get_or_insert_with(Vec::new).push(parse_stmt(item)?);
-                } else {
-                    then_block.push(parse_stmt(item)?);
-                }
+                then_block.push(parse_stmt(item)?);
             }
-            _ => {
-                // After first block of statements, we're in else
-                if !then_block.is_empty() {
-                    in_else = true;
+            Rule::else_block => {
+                let mut else_stmts = Vec::new();
+                for else_item in item.into_inner() {
+                    if else_item.as_rule() == Rule::stmt {
+                        else_stmts.push(parse_stmt(else_item)?);
+                    }
                 }
+                else_block = Some(else_stmts);
             }
+            _ => {}
         }
     }
 
@@ -156,46 +155,47 @@ fn parse_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
 }
 
 fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
-    let s = pair.as_str();
-    let mut inner = pair.into_inner().peekable();
+    let mut inner = pair.into_inner();
     let first = inner.next().ok_or(ParseError::MissingInner(Rule::comparison))?;
 
-    // Check if this is just an add_expr (no comparison)
-    if inner.peek().is_none() {
+    // Check if there's a comp_op (comparison operator)
+    let Some(comp_op) = inner.next() else {
+        // No comparison operator, just return the add_expr
+        return parse_expr(first);
+    };
+
+    // If the next item is not comp_op, it's just an add_expr
+    if comp_op.as_rule() != Rule::comp_op {
         return parse_expr(first);
     }
 
     let left = parse_expr(first)?;
 
-    // Determine the operator by looking at the original string
-    let op = if s.contains(" li suli e ") {
-        BinOp::Gt
-    } else if s.contains(" li lili e ") {
-        BinOp::Lt
-    } else if s.contains(" li sama e ") {
-        BinOp::Eq
-    } else {
-        BinOp::Eq
+    // Extract the comparison kind from comp_op
+    let op = {
+        let mut op = BinOp::Eq;
+        for item in comp_op.into_inner() {
+            if item.as_rule() == Rule::comp_kind {
+                op = match item.as_str() {
+                    "suli" => BinOp::Gt,
+                    "lili" => BinOp::Lt,
+                    "sama" => BinOp::Eq,
+                    _ => return Err(ParseError::UnexpectedRule(Rule::comp_kind)),
+                };
+            }
+        }
+        op
     };
 
-    // Get the second add_expr
-    let mut right_pair = None;
-    for item in inner {
-        if item.as_rule() == Rule::add_expr {
-            right_pair = Some(item);
-        }
-    }
+    // Get the right operand
+    let right_pair = inner.next().ok_or(ParseError::MissingInner(Rule::comparison))?;
+    let right = parse_expr(right_pair)?;
 
-    if let Some(right) = right_pair {
-        let right = parse_expr(right)?;
-        Ok(Expr::Binary {
-            left: Box::new(left),
-            op,
-            right: Box::new(right),
-        })
-    } else {
-        Ok(left)
-    }
+    Ok(Expr::Binary {
+        left: Box::new(left),
+        op,
+        right: Box::new(right),
+    })
 }
 
 fn parse_add_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {

@@ -26,7 +26,7 @@ impl Value {
         match self {
             Value::Bool(b) => *b,
             Value::Ala => false,
-            Value::Number(n) => *n != 0.0,
+            Value::Number(n) => !n.is_nan() && *n != 0.0,
             Value::String(s) => !s.is_empty(),
             Value::List(l) => !l.is_empty(),
             Value::Map(m) => !m.is_empty(),
@@ -51,7 +51,7 @@ impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Number(n) => {
-                if n.fract() == 0.0 {
+                if n.fract() == 0.0 && n.abs() < (i64::MAX as f64) {
                     write!(f, "{}", *n as i64)
                 } else {
                     write!(f, "{}", n)

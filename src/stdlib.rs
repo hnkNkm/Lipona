@@ -162,7 +162,7 @@ fn stdlib_kulupu_ken(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("kulupu_ken", &args, 2)?;
     match (&args[0], &args[1]) {
         (Value::List(items), Value::Number(i)) => {
-            let index = *i as usize;
+            let index = to_index(*i)?;
             if index >= items.len() {
                 Ok(Value::Ala)
             } else {
@@ -185,7 +185,7 @@ fn stdlib_kulupu_lon(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("kulupu_lon", &args, 3)?;
     match (&args[0], &args[1]) {
         (Value::List(items), Value::Number(i)) => {
-            let index = *i as usize;
+            let index = to_index(*i)?;
             if index >= items.len() {
                 Err(RuntimeError::IndexOutOfBounds {
                     index,
@@ -281,5 +281,17 @@ fn check_arity(name: &str, args: &[Value], expected: usize) -> Result<(), Runtim
         })
     } else {
         Ok(())
+    }
+}
+
+/// Convert f64 to usize for indexing, validating it's a non-negative integer
+fn to_index(n: f64) -> Result<usize, RuntimeError> {
+    if n < 0.0 || n.is_nan() || n.is_infinite() || n.fract() != 0.0 {
+        Err(RuntimeError::TypeError {
+            expected: "non-negative integer",
+            got: format!("{}", n),
+        })
+    } else {
+        Ok(n as usize)
     }
 }

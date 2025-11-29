@@ -27,8 +27,10 @@ if_stmt = {
     expr ~ "la" ~ "open" ~
     stmt* ~
     "pini" ~
-    ("taso" ~ "open" ~ stmt* ~ "pini")?
+    else_block?
 }
+
+else_block = { "taso" ~ "open" ~ stmt* ~ "pini" }
 
 // While statement: wile Cond la open ... pini
 while_stmt = {
@@ -50,11 +52,12 @@ expr_stmt = { expr }
 expr = { comparison }
 
 comparison = {
-    add_expr ~ "li" ~ "suli" ~ "e" ~ add_expr  // >
-    | add_expr ~ "li" ~ "lili" ~ "e" ~ add_expr  // <
-    | add_expr ~ "li" ~ "sama" ~ "e" ~ add_expr  // ==
+    add_expr ~ comp_op ~ add_expr
     | add_expr
 }
+
+comp_op = { "li" ~ comp_kind ~ "e" }
+comp_kind = { "suli" | "lili" | "sama" }
 
 add_expr = { mul_expr ~ ((add_op) ~ mul_expr)* }
 add_op = { "+" | "-" }
