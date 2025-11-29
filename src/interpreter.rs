@@ -1,3 +1,8 @@
+//! Tree-walking interpreter for the Lipona language.
+//!
+//! Executes AST nodes directly without compilation.
+//! Provides scoped variable bindings and runtime value types.
+
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -9,7 +14,8 @@ use crate::stdlib::StdLib;
 pub enum Value {
     Number(f64),
     String(String),
-    Bool(bool),
+    /// lon (true) - only true is represented as Bool
+    Bool,
     List(Vec<Value>),
     Map(HashMap<String, Value>),
     /// ala represents null/false/empty
@@ -24,7 +30,7 @@ pub enum Value {
 impl Value {
     pub fn is_truthy(&self) -> bool {
         match self {
-            Value::Bool(b) => *b,
+            Value::Bool => true,
             Value::Ala => false,
             Value::Number(n) => !n.is_nan() && *n != 0.0,
             Value::String(s) => !s.is_empty(),
@@ -38,7 +44,7 @@ impl Value {
         match self {
             Value::Number(_) => "nanpa",
             Value::String(_) => "sitelen",
-            Value::Bool(_) => "lon/ala",
+            Value::Bool => "lon",
             Value::List(_) => "kulupu",
             Value::Map(_) => "nasin",
             Value::Ala => "ala",
@@ -48,8 +54,8 @@ impl Value {
 }
 
 /// Maximum safe integer that can be exactly represented in f64 (2^53)
-const F64_SAFE_INT_MAX: f64 = 9_007_199_254_740_992.0;
-const F64_SAFE_INT_MIN: f64 = -9_007_199_254_740_992.0;
+pub const F64_SAFE_INT_MAX: f64 = 9_007_199_254_740_992.0;
+pub const F64_SAFE_INT_MIN: f64 = -9_007_199_254_740_992.0;
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -63,13 +69,14 @@ impl std::fmt::Display for Value {
                 }
             }
             Value::String(s) => write!(f, "{s}"),
-            Value::Bool(b) => write!(f, "{}", if *b { "lon" } else { "ala" }),
+            Value::Bool => write!(f, "lon"),
             Value::List(items) => {
                 let strs: Vec<String> = items.iter().map(|v| format!("{v}")).collect();
                 write!(f, "[{}]", strs.join(", "))
             }
             Value::Map(m) => {
-                let strs: Vec<String> = m.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+                let mut strs: Vec<String> = m.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+                strs.sort();
                 write!(f, "{{{}}}", strs.join(", "))
             }
             Value::Ala => write!(f, "ala"),
@@ -95,9 +102,6 @@ pub enum RuntimeError {
     WrongArity { name: String, expected: usize, got: usize },
     #[error("pakala: index out of bounds - {index} >= {len}")]
     IndexOutOfBounds { index: usize, len: usize },
-    #[allow(dead_code)]
-    #[error("pakala: key not found '{0}'")]
-    KeyNotFound(String),
     #[error("pakala: loop iteration limit exceeded (possible infinite loop)")]
     InfiniteLoop,
     #[error("pakala: maximum call depth exceeded (possible infinite recursion)")]
@@ -128,15 +132,17 @@ impl Environment {
     }
 
     pub fn pop_scope(&mut self) {
+        debug_assert!(self.scopes.len() > 1, "attempted to pop global scope");
         if self.scopes.len() > 1 {
             self.scopes.pop();
         }
     }
 
     pub fn define(&mut self, name: String, value: Value) {
-        if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name, value);
-        }
+        self.scopes
+            .last_mut()
+            .expect("Environment must have at least one scope")
+            .insert(name, value);
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
@@ -253,19 +259,14 @@ impl Interpreter {
 
     fn exec_block(&mut self, block: &Block) -> Result<ControlFlow, RuntimeError> {
         self.env.push_scope();
-        for stmt in block {
-            if let ControlFlow::Return(v) = self.exec_stmt(stmt)? {
-                self.env.pop_scope();
-                return Ok(ControlFlow::Return(v));
-            }
-        }
+        let result = self.exec_block_in_current_scope(block);
         self.env.pop_scope();
-        Ok(ControlFlow::None)
+        result
     }
 
-    /// Execute a block without creating a new scope
-    /// Used when the caller has already set up the scope (e.g., in function calls)
-    fn exec_block_no_scope(&mut self, block: &Block) -> Result<ControlFlow, RuntimeError> {
+    /// Execute a block in the current scope without creating a new one.
+    /// Used when the caller has already set up the scope (e.g., in function calls).
+    fn exec_block_in_current_scope(&mut self, block: &Block) -> Result<ControlFlow, RuntimeError> {
         for stmt in block {
             if let ControlFlow::Return(v) = self.exec_stmt(stmt)? {
                 return Ok(ControlFlow::Return(v));
@@ -278,13 +279,8 @@ impl Interpreter {
         match expr {
             Expr::Number(n) => Ok(Value::Number(*n)),
             Expr::String(s) => Ok(Value::String(s.clone())),
-            Expr::Bool(b) => {
-                if *b {
-                    Ok(Value::Bool(true))
-                } else {
-                    Ok(Value::Ala)
-                }
-            }
+            // In Lipona, `lon` (true) is Value::Bool, `ala` (false) is Value::Ala
+            Expr::Bool(b) => Ok(if *b { Value::Bool } else { Value::Ala }),
             Expr::Var(name) => self
                 .env
                 .get(name)
@@ -329,10 +325,14 @@ impl Interpreter {
                 Ok(Value::String(format!("{a}{b}")))
             }
 
-            // Comparisons
-            (BinOp::Gt, Value::Number(a), Value::Number(b)) => Ok(Value::Bool(a > b)),
-            (BinOp::Lt, Value::Number(a), Value::Number(b)) => Ok(Value::Bool(a < b)),
-            (BinOp::Eq, a, b) => Ok(Value::Bool(a == b)),
+            // Comparisons - return Bool for true, Ala for false
+            (BinOp::Gt, Value::Number(a), Value::Number(b)) => {
+                Ok(if a > b { Value::Bool } else { Value::Ala })
+            }
+            (BinOp::Lt, Value::Number(a), Value::Number(b)) => {
+                Ok(if a < b { Value::Bool } else { Value::Ala })
+            }
+            (BinOp::Eq, a, b) => Ok(if a == b { Value::Bool } else { Value::Ala }),
 
             // Type errors
             _ => Err(RuntimeError::TypeError {
@@ -358,10 +358,7 @@ impl Interpreter {
     fn call_function_inner(&mut self, name: &str, args: &[Expr]) -> Result<Value, RuntimeError> {
         // Check stdlib first
         if self.stdlib.has_function(name) {
-            let mut evaluated_args = Vec::new();
-            for arg in args {
-                evaluated_args.push(self.eval_expr(arg)?);
-            }
+            let evaluated_args = self.eval_args(args)?;
             return self.stdlib.call(name, evaluated_args);
         }
 
@@ -383,10 +380,7 @@ impl Interpreter {
                 }
 
                 // Evaluate arguments
-                let mut evaluated_args = Vec::new();
-                for arg in args {
-                    evaluated_args.push(self.eval_expr(arg)?);
-                }
+                let evaluated_args = self.eval_args(args)?;
 
                 // Create new scope and bind parameters
                 self.env.push_scope();
@@ -394,20 +388,25 @@ impl Interpreter {
                     self.env.define(param.clone(), value);
                 }
 
-                // Execute function body
-                let result = match self.exec_block_no_scope(&body)? {
+                // Execute function body, ensuring scope is popped even on error
+                let result = self.exec_block_in_current_scope(&body);
+                self.env.pop_scope();
+
+                // Convert result after scope is popped
+                result.map(|cf| match cf {
                     ControlFlow::Return(v) => v,
                     ControlFlow::None => Value::Ala,
-                };
-
-                self.env.pop_scope();
-                Ok(result)
+                })
             }
             _ => Err(RuntimeError::TypeError {
                 expected: "ilo",
                 got: func.type_name().to_string(),
             }),
         }
+    }
+
+    fn eval_args(&mut self, args: &[Expr]) -> Result<Vec<Value>, RuntimeError> {
+        args.iter().map(|arg| self.eval_expr(arg)).collect()
     }
 }
 

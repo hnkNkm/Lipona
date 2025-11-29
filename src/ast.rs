@@ -1,5 +1,12 @@
+//! Abstract Syntax Tree definitions for the Lipona language.
+//!
+//! This module defines the core AST types used by the parser and interpreter:
+//! - [`Expr`]: Expression nodes (literals, variables, operations, function calls)
+//! - [`Stmt`]: Statement nodes (assignments, control flow, function definitions)
+//! - [`BinOp`]: Binary operators
+
 /// Binary operators
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinOp {
     Add,      // +
     Sub,      // -

@@ -1,6 +1,11 @@
+//! Standard library functions for the Lipona language.
+//!
+//! Provides built-in functions for I/O, string manipulation,
+//! list operations, and map operations.
+
 use std::collections::HashMap;
 
-use crate::interpreter::{RuntimeError, Value};
+use crate::interpreter::{RuntimeError, Value, F64_SAFE_INT_MAX};
 
 /// Standard library function signature
 type StdLibFn = fn(Vec<Value>) -> Result<Value, RuntimeError>;
@@ -12,30 +17,28 @@ pub struct StdLib {
 
 impl StdLib {
     pub fn new() -> Self {
-        let mut functions: HashMap<&'static str, StdLibFn> = HashMap::new();
-
-        // I/O
-        functions.insert("toki", stdlib_toki);
-
-        // Number
-        functions.insert("nanpa_sin", stdlib_nanpa_sin);
-        functions.insert("nanpa_len", stdlib_nanpa_len);
-
-        // String
-        functions.insert("sitelen_len", stdlib_sitelen_len);
-        functions.insert("sitelen_sama", stdlib_sitelen_sama);
-
-        // List
-        functions.insert("kulupu_sin", stdlib_kulupu_sin);
-        functions.insert("kulupu_len", stdlib_kulupu_len);
-        functions.insert("kulupu_ken", stdlib_kulupu_ken);
-        functions.insert("kulupu_lon", stdlib_kulupu_lon);
-        functions.insert("kulupu_aksen", stdlib_kulupu_aksen);
-
-        // Map
-        functions.insert("nasin_sin", stdlib_nasin_sin);
-        functions.insert("nasin_ken", stdlib_nasin_ken);
-        functions.insert("nasin_lon", stdlib_nasin_lon);
+        let functions: HashMap<&'static str, StdLibFn> = [
+            // I/O
+            ("toki", stdlib_toki as StdLibFn),
+            // Number
+            ("nanpa_sin", stdlib_nanpa_sin as StdLibFn),
+            ("nanpa_len", stdlib_nanpa_len as StdLibFn),
+            // String
+            ("sitelen_len", stdlib_sitelen_len as StdLibFn),
+            ("sitelen_sama", stdlib_sitelen_sama as StdLibFn),
+            // List
+            ("kulupu_sin", stdlib_kulupu_sin as StdLibFn),
+            ("kulupu_len", stdlib_kulupu_len as StdLibFn),
+            ("kulupu_ken", stdlib_kulupu_ken as StdLibFn),
+            ("kulupu_lon", stdlib_kulupu_lon as StdLibFn),
+            ("kulupu_aksen", stdlib_kulupu_aksen as StdLibFn),
+            // Map
+            ("nasin_sin", stdlib_nasin_sin as StdLibFn),
+            ("nasin_ken", stdlib_nasin_ken as StdLibFn),
+            ("nasin_lon", stdlib_nasin_lon as StdLibFn),
+        ]
+        .into_iter()
+        .collect();
 
         Self { functions }
     }
@@ -109,7 +112,14 @@ fn stdlib_nanpa_len(args: Vec<Value>) -> Result<Value, RuntimeError> {
             let len = if abs < 1.0 {
                 1 // 0.xxx is considered 1 digit for integer part
             } else {
-                (abs.log10().floor() as usize) + 1
+                // Count digits iteratively to avoid floating-point precision issues with log10
+                let mut count = 0usize;
+                let mut val = abs.trunc();
+                while val >= 1.0 {
+                    val /= 10.0;
+                    count += 1;
+                }
+                count.max(1)
             };
             Ok(Value::Number(len as f64))
         }
@@ -137,9 +147,15 @@ fn stdlib_sitelen_len(args: Vec<Value>) -> Result<Value, RuntimeError> {
 /// sitelen_sama e (a, b) - string equality
 fn stdlib_sitelen_sama(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("sitelen_sama", &args, 2)?;
-    match (&args[0], &args[1]) {
-        (Value::String(a), Value::String(b)) => Ok(Value::Bool(a == b)),
-        (Value::String(_), other) | (other, _) => Err(RuntimeError::TypeError {
+    let a = expect_string(&args[0])?;
+    let b = expect_string(&args[1])?;
+    Ok(if a == b { Value::Bool } else { Value::Ala })
+}
+
+fn expect_string(value: &Value) -> Result<&str, RuntimeError> {
+    match value {
+        Value::String(s) => Ok(s),
+        other => Err(RuntimeError::TypeError {
             expected: "sitelen",
             got: other.type_name().to_string(),
         }),
@@ -300,10 +316,12 @@ fn to_index(n: f64) -> Result<usize, RuntimeError> {
             got: format!("{n}"),
         });
     }
-    if n > (usize::MAX as f64) {
+    // Check against both f64 safe integer range and platform's usize::MAX
+    let max_safe = F64_SAFE_INT_MAX.min(usize::MAX as f64);
+    if n > max_safe {
         return Err(RuntimeError::TypeError {
-            expected: "index within bounds",
-            got: format!("{n} exceeds maximum index"),
+            expected: "index within safe integer range",
+            got: format!("{n} exceeds maximum safe index"),
         });
     }
     Ok(n as usize)

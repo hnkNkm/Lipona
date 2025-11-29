@@ -1,3 +1,8 @@
+//! Parser for the Lipona language.
+//!
+//! Uses pest PEG parser to convert source code into an AST.
+//! The grammar is defined in `lipona.pest`.
+
 use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
@@ -16,6 +21,10 @@ pub enum ParseError {
     UnexpectedRule(Rule),
     #[error("Invalid number: {0}")]
     InvalidNumber(String),
+    #[error("Invalid boolean: {0}")]
+    InvalidBoolean(String),
+    #[error("Invalid string literal: {0}")]
+    InvalidString(String),
     #[error("Parse error: missing inner element in {0:?}")]
     MissingInner(Rule),
 }
@@ -77,7 +86,9 @@ fn parse_func_def(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError>
             Rule::stmt => {
                 body.push(parse_stmt(item)?);
             }
-            _ => {}
+            rule => {
+                return Err(ParseError::UnexpectedRule(rule));
+            }
         }
     }
 
@@ -105,7 +116,9 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> 
                 }
                 else_block = Some(else_stmts);
             }
-            _ => {}
+            rule => {
+                return Err(ParseError::UnexpectedRule(rule));
+            }
         }
     }
 
@@ -170,27 +183,25 @@ fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
         return parse_expr(first);
     };
 
-    // If the next item is not comp_op, it's just an add_expr
+    // Validate comp_op rule
     if comp_op.as_rule() != Rule::comp_op {
-        return parse_expr(first);
+        return Err(ParseError::UnexpectedRule(comp_op.as_rule()));
     }
 
     let left = parse_expr(first)?;
 
     // Extract the comparison kind from comp_op
     let op = {
-        let mut op = BinOp::Eq;
-        for item in comp_op.into_inner() {
-            if item.as_rule() == Rule::comp_kind {
-                op = match item.as_str() {
-                    "suli" => BinOp::Gt,
-                    "lili" => BinOp::Lt,
-                    "sama" => BinOp::Eq,
-                    _ => return Err(ParseError::UnexpectedRule(Rule::comp_kind)),
-                };
-            }
+        let comp_kind = comp_op
+            .into_inner()
+            .find(|item| item.as_rule() == Rule::comp_kind)
+            .ok_or(ParseError::MissingInner(Rule::comp_op))?;
+        match comp_kind.as_str() {
+            "suli" => BinOp::Gt,
+            "lili" => BinOp::Lt,
+            "sama" => BinOp::Eq,
+            _ => return Err(ParseError::UnexpectedRule(Rule::comp_kind)),
         }
-        op
     };
 
     // Get the right operand
@@ -204,63 +215,61 @@ fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
     })
 }
 
-fn parse_add_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
+fn parse_binary_expr(
+    pair: pest::iterators::Pair<Rule>,
+    rule: Rule,
+    op_mapper: fn(&str) -> Option<BinOp>,
+) -> Result<Expr, ParseError> {
     let mut inner = pair.into_inner();
-    let mut left = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::add_expr))?)?;
+    let mut left = parse_expr(inner.next().ok_or(ParseError::MissingInner(rule))?)?;
 
     while let Some(op_pair) = inner.next() {
-        let op = match op_pair.as_str() {
-            "+" => BinOp::Add,
-            "-" => BinOp::Sub,
-            _ => continue,
+        let Some(op) = op_mapper(op_pair.as_str()) else {
+            return Err(ParseError::UnexpectedRule(op_pair.as_rule()));
         };
 
-        if let Some(right_pair) = inner.next() {
-            let right = parse_expr(right_pair)?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
+        let right_pair = inner.next().ok_or(ParseError::MissingInner(rule))?;
+        let right = parse_expr(right_pair)?;
+        left = Expr::Binary {
+            left: Box::new(left),
+            op,
+            right: Box::new(right),
+        };
     }
 
     Ok(left)
+}
+
+fn parse_add_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
+    parse_binary_expr(pair, Rule::add_expr, |s| match s {
+        "+" => Some(BinOp::Add),
+        "-" => Some(BinOp::Sub),
+        _ => None,
+    })
 }
 
 fn parse_mul_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
-    let mut inner = pair.into_inner();
-    let mut left = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::mul_expr))?)?;
-
-    while let Some(op_pair) = inner.next() {
-        let op = match op_pair.as_str() {
-            "*" => BinOp::Mul,
-            "/" => BinOp::Div,
-            _ => continue,
-        };
-
-        if let Some(right_pair) = inner.next() {
-            let right = parse_expr(right_pair)?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
-    }
-
-    Ok(left)
+    parse_binary_expr(pair, Rule::mul_expr, |s| match s {
+        "*" => Some(BinOp::Mul),
+        "/" => Some(BinOp::Div),
+        _ => None,
+    })
 }
 
 fn parse_unary_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
-    let mut inner = pair.into_inner();
-    let first = inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?;
+    let mut inner = pair.into_inner().peekable();
 
-    if first.as_str() == "-" {
-        let expr = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?)?;
+    // Check if there's a negation operator by peeking at the first element
+    let is_negated = inner.peek().is_some_and(|p| p.as_str() == "-");
+
+    if is_negated {
+        inner.next(); // consume the "-"
+        let primary = inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?;
+        let expr = parse_expr(primary)?;
         Ok(Expr::Neg(Box::new(expr)))
     } else {
-        parse_expr(first)
+        let primary = inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?;
+        parse_expr(primary)
     }
 }
 
@@ -297,7 +306,7 @@ fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     let content = s
         .strip_prefix('"')
         .and_then(|s| s.strip_suffix('"'))
-        .unwrap_or(s);
+        .ok_or_else(|| ParseError::InvalidString(s.to_string()))?;
 
     // Process escape sequences
     let unescaped = unescape_string(content);
@@ -334,7 +343,7 @@ fn parse_boolean(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> 
     match pair.as_str() {
         "lon" => Ok(Expr::Bool(true)),
         "ala" => Ok(Expr::Bool(false)),
-        other => Err(ParseError::InvalidNumber(format!("invalid boolean: {other}"))),
+        other => Err(ParseError::InvalidBoolean(other.to_string())),
     }
 }
 
