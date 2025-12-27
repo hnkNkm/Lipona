@@ -1,15 +1,15 @@
 // Function example
-ilo sum li pali e (a, b) la open
-    pana e a + b
+ilo sum (a, b) open
+    pana a + b
 pini
 
-x li jo e sum e (10, 20)
-toki e (x)
+x jo sum(10, 20)
+toki(x)
 
 // Function example2
-ilo sub li pali e (b, c) la open
-    pana e b - c
+ilo sub (b, c) open
+    pana b - c
 pini
 
-x li jo e sub e (100, 10)
-toki e (x)
+x jo sub(100, 10)
+toki(x)

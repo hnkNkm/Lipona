@@ -14,7 +14,7 @@ cargo build
 cargo run -- lipu.lipo
 
 # kepeken toki
-cargo run -- -e 'toki e ("pona")'
+cargo run -- -e 'toki("pona")'
 ```
 
 ## nasin toki
@@ -23,58 +23,58 @@ cargo run -- -e 'toki e ("pona")'
 
 ```
 // nanpa
-x li jo e 42
-y li jo e 3.14
+x jo 42
+y jo 3.14
 
 // sitelen
-nimi li jo e "jan Lipona"
+nimi jo "jan Lipona"
 
 // sitelen pi ijo insa
-toki e ("toki, {nimi}!")
+toki("toki, {nimi}!")
 ```
 
 ### ijo lon en ijo ala
 
 ```
-a li jo e lon    // lon (true)
-b li jo e ala    // ala (false/null)
+a jo lon    // lon (true)
+b jo ala    // ala (false/null)
 ```
 
 ### pali nanpa
 
 ```
 // + - * /
-x li jo e 10 + 5
-y li jo e x * 2
+x jo 10 + 5
+y jo x * 2
 ```
 
 ### lukin sama
 
 ```
-a li suli e b        // a > b
-a li lili e b        // a < b
-a li suli_sama e b   // a >= b
-a li lili_sama e b   // a <= b
-a li sama e b        // a == b
+a suli b        // a > b
+a lili b        // a < b
+a suli_sama b   // a >= b
+a lili_sama b   // a <= b
+a sama b        // a == b
 ```
 
 ### la (ken)
 
 ```
-x li suli e 10 la open
-    toki e ("suli")
+x suli 10 la open
+    toki("suli")
 pini taso open
-    toki e ("lili")
+    toki("lili")
 pini
 ```
 
 ### wile (sin sin sin)
 
 ```
-i li jo e 0
-wile i li lili e 5 la open
-    toki e (i)
-    i li jo e i + 1
+i jo 0
+wile i lili 5 la open
+    toki(i)
+    i jo i + 1
 pini
 ```
 
@@ -82,28 +82,28 @@ pini
 
 ```
 // pali sin
-ilo sum li pali e (a, b) la open
-    pana e a + b
+ilo sum (a, b) open
+    pana a + b
 pini
 
 // kepeken pali
-x li jo e sum e (10, 20)
-toki e (x)  // 30
+x jo sum(10, 20)
+toki(x)  // 30
 ```
 
 ## ilo insa (stdlib)
 
 | ilo | nasin |
 |-----|-------|
-| `toki e (x)` | sitelen tawa jan |
-| `nanpa_sin e (s)` | sitelen tawa nanpa |
-| `sitelen_len e (s)` | suli pi sitelen |
-| `kulupu_sin e (...)` | pali e kulupu |
-| `kulupu_len e (k)` | suli pi kulupu |
-| `kulupu_ken e (k, i)` | kama jo tan kulupu |
-| `nasin_sin e ()` | pali e nasin |
-| `nasin_lon e (n, k, v)` | pana tawa nasin |
-| `nasin_ken e (n, k)` | kama jo tan nasin |
+| `toki(x)` | sitelen tawa jan |
+| `nanpa_sin(s)` | sitelen tawa nanpa |
+| `sitelen_len(s)` | suli pi sitelen |
+| `kulupu_sin(...)` | pali e kulupu |
+| `kulupu_len(k)` | suli pi kulupu |
+| `kulupu_ken(k, i)` | kama jo tan kulupu |
+| `nasin_sin()` | pali e nasin |
+| `nasin_lon(n, k, v)` | pana tawa nasin |
+| `nasin_ken(n, k)` | kama jo tan nasin |
 
 ## sona ante
 

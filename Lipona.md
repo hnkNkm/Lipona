@@ -1,8 +1,8 @@
-# 📘 Lipona Programming Language – MVP Specification (v0.1)
+# Lipona Programming Language – MVP Specification (v0.2)
 
 ## 0. 概要
 
-Lipona は **Toki Pona の文構造をベースにしたミニマルなプログラミング言語**である。  
+Lipona は **Toki Pona の文構造をベースにしたミニマルなプログラミング言語**である。
 構文を可能な限り少なく保ち、機能の拡張は **新しい構文ではなく関数（ilo）で行う**ことを哲学とする。
 
 目的：
@@ -27,7 +27,7 @@ Lipona は **Toki Pona の文構造をベースにしたミニマルなプログ
 
 [a-zA-Z_][a-zA-Z0-9_]*
 
-※命名は **トキポナ語でも英語でもどちらでもよい**。  
+※命名は **トキポナ語でも英語でもどちらでもよい**。
 識別子がラテン文字規則を満たせば許可する。
 
 例（全て合法）：
@@ -39,9 +39,9 @@ ilo json_parse
 
 ### 1.4 予約語（識別子に使用不可）
 
-li, e, la, open, pini, ilo, pali, pana,
+la, open, pini, ilo, pana,
 wile, taso,
-suli, lili, sama,
+suli, lili, suli_sama, lili_sama, sama,
 jo, lon, ala
 
 ---
@@ -68,12 +68,12 @@ ala は false/null に相当するボトム値として扱う。
 
 - 関数呼び出し（式として使用可能）
 
-NAME e (arg1, arg2, ...)
+NAME(arg1, arg2, ...)
 
 例：
 
-x li jo e sum e (a, b)
-toki e sine_wave e (440, 2)
+x jo sum(a, b)
+toki(sine_wave(440, 2))
 
 ---
 
@@ -81,13 +81,15 @@ toki e sine_wave e (440, 2)
 
 ### 4.1 代入
 
-x li jo e Expr
+x jo Expr
 
 ### 4.2 比較
 
-x li suli e y    // x > y
-x li lili e y    // x < y
-x li sama e y    // x == y
+x suli y      // x > y
+x lili y      // x < y
+x suli_sama y // x >= y
+x lili_sama y // x <= y
+x sama y      // x == y
 
 ---
 
@@ -105,7 +107,7 @@ pini
 Condition に使えるのは：
 - lon / ala
 - 真偽値を格納する変数
-- 比較式（例：x li suli e y）
+- 比較式（例：x suli y）
 
 ### 5.2 while
 
@@ -119,50 +121,50 @@ pini
 
 ### 6.1 関数定義
 
-ilo NAME li pali e (param1, param2...) la open
+ilo NAME (param1, param2...) open
     Stmt*
 pini
 
 ### 6.2 return
 
-pana e Expr
+pana Expr
 
-pana e が実行されなかった場合の戻り値は ala。
+pana が実行されなかった場合の戻り値は ala。
 
 ---
 
 ## 7. 標準ライブラリ（MVP最小セット）
 
-※ 全て通常の関数（ilo）として提供。  
+※ 全て通常の関数（ilo）として提供。
 ※シンタックスの追加は行わない。
 
 ### 7.1 入出力
 
-- toki e (x) : print
+- toki(x) : print
 
 ### 7.2 数値
 
-- nanpa_sin e (x) : 文字列 → 数値変換
-- nanpa_len e (x) : 数字の桁数
+- nanpa_sin(x) : 文字列 → 数値変換
+- nanpa_len(x) : 数字の桁数
 
 ### 7.3 文字列
 
-- sitelen_len e (s) : 長さ
-- sitelen_sama e (a, b) : 同値判定
+- sitelen_len(s) : 長さ
+- sitelen_sama(a, b) : 同値判定
 
 ### 7.4 リスト
 
-- kulupu_sin e (...items) : リスト生成
-- kulupu_len e (arr) : 長さ
-- kulupu_ken e (arr, i) : 要素取得
-- kulupu_lon e (arr, i, val) : 要素代入
-- kulupu_aksen e (arr, val) : append
+- kulupu_sin(...items) : リスト生成
+- kulupu_len(arr) : 長さ
+- kulupu_ken(arr, i) : 要素取得
+- kulupu_lon(arr, i, val) : 要素代入
+- kulupu_aksen(arr, val) : append
 
 ### 7.5 マップ
 
-- nasin_sin e () : 空マップ生成
-- nasin_ken e (m, key) : get
-- nasin_lon e (m, key, val) : set
+- nasin_sin() : 空マップ生成
+- nasin_ken(m, key) : get
+- nasin_lon(m, key, val) : set
 
 ---
 
@@ -180,31 +182,31 @@ pana e が実行されなかった場合の戻り値は ala。
 
 ### 9.1 Hello World
 
-toki e ("pona mute!")
+toki("pona mute!")
 
 ### 9.2 関数
 
-ilo sum li pali e (a, b) la open
-    pana e a + b
+ilo sum (a, b) open
+    pana a + b
 pini
 
-x li jo e sum e (10, 20)
-toki e (x)
+x jo sum(10, 20)
+toki(x)
 
 ### 9.3 while
 
-i li jo e 0
-wile i li lili e 5 la open
-    toki e (i)
-    i li jo e i + 1
+i jo 0
+wile i lili 5 la open
+    toki(i)
+    i jo i + 1
 pini
 
 ### 9.4 リスト操作
 
-nums li jo e kulupu_sin e (1,2,3)
-toki e (kulupu_len e (nums))
-kulupu_lon e (nums, 1, 99)
-toki e (kulupu_ken e (nums, 1))
+nums jo kulupu_sin(1, 2, 3)
+toki(kulupu_len(nums))
+kulupu_lon(nums, 1, 99)
+toki(kulupu_ken(nums, 1))
 
 ---
 
@@ -256,4 +258,3 @@ Lipona は **Toki Pona の文法構造を核に置き、構文拡張ではなく
 
 目的：読むだけで意味が通るプログラミング
 手段：構文を増やさず、関数で拡張する
-

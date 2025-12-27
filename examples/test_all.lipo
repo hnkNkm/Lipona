@@ -1,0 +1,247 @@
+// Lipona Test Suite
+// Tests all language features and stdlib functions
+
+// ============================================
+// 1. Variables and Basic Types
+// ============================================
+toki("=== 1. nanpa en sitelen ===")
+
+x jo 42
+toki("x = {x}")
+
+y jo 3.14
+toki("y = {y}")
+
+name jo "jan Lipona"
+toki("name = {name}")
+
+a jo lon
+b jo ala
+toki("lon = {a}, ala = {b}")
+
+// ============================================
+// 2. Arithmetic Operations
+// ============================================
+toki("")
+toki("=== 2. pali nanpa ===")
+
+r1 jo 10 + 5
+r2 jo 10 - 5
+r3 jo 10 * 5
+r4 jo 10 / 5
+r5 jo 0 - 42
+r6 jo (2 + 3) * 4
+toki("10 + 5 = {r1}")
+toki("10 - 5 = {r2}")
+toki("10 * 5 = {r3}")
+toki("10 / 5 = {r4}")
+toki("0 - 42 = {r5}")
+toki("(2 + 3) * 4 = {r6}")
+
+// ============================================
+// 3. Comparison Operators
+// ============================================
+toki("")
+toki("=== 3. lukin sama ===")
+
+c1 jo 5 suli 3
+c2 jo 3 suli 5
+c3 jo 5 lili 3
+c4 jo 3 lili 5
+c5 jo 5 suli_sama 5
+c6 jo 5 suli_sama 6
+c7 jo 5 lili_sama 5
+c8 jo 4 lili_sama 5
+c9 jo 5 sama 5
+c10 jo 5 sama 6
+toki("5 > 3: {c1}")
+toki("3 > 5: {c2}")
+toki("5 < 3: {c3}")
+toki("3 < 5: {c4}")
+toki("5 >= 5: {c5}")
+toki("5 >= 6: {c6}")
+toki("5 <= 5: {c7}")
+toki("4 <= 5: {c8}")
+toki("5 == 5: {c9}")
+toki("5 == 6: {c10}")
+
+// ============================================
+// 4. String Operations
+// ============================================
+toki("")
+toki("=== 4. sitelen ===")
+
+s jo "pona"
+slen jo sitelen_len(s)
+toki("sitelen_len(pona) = {slen}")
+
+s1 jo "toki"
+s2 jo "pona"
+cmp1 jo sitelen_sama(s1, s2)
+cmp2 jo sitelen_sama(s2, s2)
+toki("sitelen_sama(toki, pona) = {cmp1}")
+toki("sitelen_sama(pona, pona) = {cmp2}")
+
+// String concatenation
+hello jo "toki " + "pona"
+toki("toki + pona = {hello}")
+
+// Template string with expression
+val jo 100
+val2 jo val * 2
+toki("val * 2 = {val2}")
+
+// ============================================
+// 5. Conditionals (if/else)
+// ============================================
+toki("")
+toki("=== 5. la (ken) ===")
+
+n jo 15
+n suli 10 la open
+    toki("n={n} li suli e 10")
+pini taso open
+    toki("n={n} li lili_sama e 10")
+pini
+
+// Nested if
+m jo 5
+m suli 10 la open
+    toki("suli")
+pini taso open
+    m suli 0 la open
+        toki("lili taso suli e 0")
+    pini taso open
+        toki("lili anu sama e 0")
+    pini
+pini
+
+// ============================================
+// 6. While Loop
+// ============================================
+toki("")
+toki("=== 6. wile ===")
+
+i jo 0
+wile i lili 5 la open
+    toki("i = {i}")
+    i jo i + 1
+pini
+
+// Sum 1 to 10
+sum jo 0
+j jo 1
+wile j lili_sama 10 la open
+    sum jo sum + j
+    j jo j + 1
+pini
+toki("sum(1..10) = {sum}")
+
+// ============================================
+// 7. Functions
+// ============================================
+toki("")
+toki("=== 7. ilo ===")
+
+// Simple function
+ilo double (n) open
+    pana n * 2
+pini
+
+d1 jo double(21)
+toki("double(21) = {d1}")
+
+// Function with multiple params
+ilo add (a, b) open
+    pana a + b
+pini
+
+a1 jo add(10, 20)
+toki("add(10, 20) = {a1}")
+
+// Recursive function (factorial)
+ilo factorial (n) open
+    n lili_sama 1 la open
+        pana 1
+    pini
+    f1 jo factorial(n - 1)
+    pana n * f1
+pini
+
+f5 jo factorial(5)
+f10 jo factorial(10)
+toki("factorial(5) = {f5}")
+toki("factorial(10) = {f10}")
+
+// ============================================
+// 8. Lists (kulupu)
+// ============================================
+toki("")
+toki("=== 8. kulupu ===")
+
+// Create list
+arr jo kulupu_sin(10, 20, 30, 40, 50)
+toki("kulupu = {arr}")
+arrlen jo kulupu_len(arr)
+toki("kulupu_len = {arrlen}")
+
+// Get elements
+elem0 jo kulupu_ken(arr, 0)
+elem2 jo kulupu_ken(arr, 2)
+elem10 jo kulupu_ken(arr, 10)
+toki("arr[0] = {elem0}")
+toki("arr[2] = {elem2}")
+toki("arr[10] = {elem10}")
+
+// Set element
+arr2 jo kulupu_lon(arr, 1, 999)
+toki("arr[1] = 999: {arr2}")
+
+// Append
+arr3 jo kulupu_aksen(arr, 60)
+toki("append 60: {arr3}")
+
+// ============================================
+// 9. Maps (nasin)
+// ============================================
+toki("")
+toki("=== 9. nasin ===")
+
+// Create empty map
+map jo nasin_sin()
+toki("nasin_sin = {map}")
+
+// Set values
+map jo nasin_lon(map, "a", 100)
+map jo nasin_lon(map, "b", 200)
+map jo nasin_lon(map, "c", 300)
+toki("nasin = {map}")
+
+// Get values
+ma jo nasin_ken(map, "a")
+mb jo nasin_ken(map, "b")
+mx jo nasin_ken(map, "x")
+toki("map[a] = {ma}")
+toki("map[b] = {mb}")
+toki("map[x] = {mx}")
+
+// ============================================
+// 10. Number Functions
+// ============================================
+toki("")
+toki("=== 10. nanpa ilo ===")
+
+ns1 jo nanpa_sin("42")
+ns2 jo nanpa_sin("3.14")
+nl1 jo nanpa_len(12345)
+nl2 jo nanpa_len(0)
+toki("nanpa_sin(42) = {ns1}")
+toki("nanpa_sin(3.14) = {ns2}")
+toki("nanpa_len(12345) = {nl1}")
+toki("nanpa_len(0) = {nl2}")
+
+// ============================================
+// Done!
+// ============================================
+toki("")
+toki("=== pini! ona li pona ===")

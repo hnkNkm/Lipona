@@ -1,4 +1,4 @@
-// Lipona Grammar - Toki Pona-based Programming Language
+// Lipona Grammar - Toki Pona-based Programming Language (Simplified)
 
 // Entry point
 program = { SOI ~ stmt* ~ EOI }
@@ -13,9 +13,9 @@ stmt = {
     | expr_stmt
 }
 
-// Function definition: ilo NAME li pali e (params) la open ... pini
+// Function definition: ilo NAME (params) open ... pini
 func_def = {
-    "ilo" ~ ident ~ "li" ~ "pali" ~ "e" ~ "(" ~ param_list? ~ ")" ~ "la" ~ "open" ~
+    "ilo" ~ ident ~ "(" ~ param_list? ~ ")" ~ "open" ~
     stmt* ~
     "pini"
 }
@@ -39,11 +39,11 @@ while_stmt = {
     "pini"
 }
 
-// Return statement: pana e Expr
-return_stmt = { "pana" ~ "e" ~ expr }
+// Return statement: pana Expr
+return_stmt = { "pana" ~ expr }
 
-// Assignment: x li jo e Expr
-assign_stmt = { ident ~ "li" ~ "jo" ~ "e" ~ expr }
+// Assignment: x jo Expr
+assign_stmt = { ident ~ "jo" ~ expr }
 
 // Expression statement (for function calls without assignment)
 expr_stmt = { expr }
@@ -56,8 +56,7 @@ comparison = {
     | add_expr
 }
 
-comp_op = { "li" ~ comp_kind ~ "e" }
-comp_kind = { "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" }
+comp_op = { "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" }
 
 add_expr = { mul_expr ~ ((add_op) ~ mul_expr)* }
 add_op = { "+" | "-" }
@@ -76,28 +75,28 @@ primary = {
     | ident
 }
 
-// Function call: NAME e (args)
-func_call = { ident ~ "e" ~ "(" ~ arg_list? ~ ")" }
+// Function call: NAME(args)
+func_call = { ident ~ "(" ~ arg_list? ~ ")" }
 arg_list = { expr ~ ("," ~ expr)* }
 
 // Literals
 number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 
 // String with optional interpolation: "Hello, {name}!"
-string = { "\"" ~ string_part* ~ "\"" }
-string_part = { interpolation | string_literal }
-interpolation = { "{" ~ expr ~ "}" }
+string = ${ "\"" ~ string_inner* ~ "\"" }
+string_inner = ${ interpolation | string_literal }
+interpolation = { "{" ~ WHITESPACE* ~ expr ~ WHITESPACE* ~ "}" }
 string_literal = @{ (escape | (!("\"" | "\\" | "{") ~ ANY))+ }
-escape = { "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "{" | "}") }
+escape = @{ "\\" ~ ("n" | "t" | "r" | "\\" | "\"" | "{" | "}") }
 
 boolean = { "lon" | "ala" }
 
 // Identifier
-ident = @{ !keyword ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+ident = @{ !(keyword ~ !(ASCII_ALPHANUMERIC | "_")) ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
-// Keywords (reserved)
+// Keywords (reserved) - must be followed by non-identifier character
 keyword = {
-    "li" | "e" | "la" | "open" | "pini" | "ilo" | "pali" | "pana"
+    "la" | "open" | "pini" | "ilo" | "pana"
     | "wile" | "taso" | "suli_sama" | "lili_sama" | "suli" | "lili" | "sama" | "jo" | "lon" | "ala"
 }
 
