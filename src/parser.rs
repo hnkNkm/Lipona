@@ -190,20 +190,14 @@ fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
 
     let left = parse_expr(first)?;
 
-    // Extract the comparison kind from comp_op
-    let op = {
-        let comp_kind = comp_op
-            .into_inner()
-            .find(|item| item.as_rule() == Rule::comp_kind)
-            .ok_or(ParseError::MissingInner(Rule::comp_op))?;
-        match comp_kind.as_str() {
-            "suli" => BinOp::Gt,
-            "lili" => BinOp::Lt,
-            "suli_sama" => BinOp::Ge,
-            "lili_sama" => BinOp::Le,
-            "sama" => BinOp::Eq,
-            _ => return Err(ParseError::UnexpectedRule(Rule::comp_kind)),
-        }
+    // Extract the comparison operator directly from comp_op
+    let op = match comp_op.as_str() {
+        "suli" => BinOp::Gt,
+        "lili" => BinOp::Lt,
+        "suli_sama" => BinOp::Ge,
+        "lili_sama" => BinOp::Le,
+        "sama" => BinOp::Eq,
+        _ => return Err(ParseError::UnexpectedRule(Rule::comp_op)),
     };
 
     // Get the right operand
@@ -378,21 +372,21 @@ mod tests {
 
     #[test]
     fn test_parse_number() {
-        let result = parse("x li jo e 42").unwrap();
+        let result = parse("x jo 42").unwrap();
         assert_eq!(result.len(), 1);
     }
 
     #[test]
     fn test_parse_string() {
-        let result = parse(r#"toki e ("pona")"#).unwrap();
+        let result = parse(r#"toki("pona")"#).unwrap();
         assert_eq!(result.len(), 1);
     }
 
     #[test]
     fn test_parse_func_def() {
         let code = r#"
-            ilo sum li pali e (a, b) la open
-                pana e a + b
+            ilo sum (a, b) open
+                pana a + b
             pini
         "#;
         let result = parse(code).unwrap();

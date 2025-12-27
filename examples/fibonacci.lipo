@@ -1,21 +1,21 @@
 // Fibonacci sequence example
 // Calculates and prints the first 20 Fibonacci numbers
 
-ilo fib li pali e (n) la open
+ilo fib (n) open
     // Base case: fib(0) = 0, fib(1) = 1
-    n li lili_sama e 1 la open
-        pana e n
+    n lili_sama 1 la open
+        pana n
     pini
     // Recursive case
-    a li jo e fib e (n - 1)
-    b li jo e fib e (n - 2)
-    pana e a + b
+    a jo fib(n - 1)
+    b jo fib(n - 2)
+    pana a + b
 pini
 
 // Print first 20 Fibonacci numbers
-i li jo e 0
-wile i li lili e 20 la open
-    result li jo e fib e (i)
-    toki e ("fib({i}) = {result}")
-    i li jo e i + 1
+i jo 0
+wile i lili 21 la open
+    result jo fib(i)
+    toki("fib({i}) = {result}")
+    i jo i + 1
 pini

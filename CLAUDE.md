@@ -15,11 +15,11 @@ See `Lipona.md` for the full MVP specification.
 lipona/
 ├── src/
 │   ├── main.rs        # Entry point
-│   ├── lexer.rs       # Tokenizer
 │   ├── parser.rs      # AST parser
 │   ├── ast.rs         # AST definitions
 │   ├── interpreter.rs # Tree-walking interpreter
-│   └── stdlib.rs      # Standard library (ilo)
+│   ├── stdlib.rs      # Standard library (ilo)
+│   └── lipona.pest    # PEG grammar
 ├── examples/          # .lipo example files
 ├── tests/             # Integration tests
 ├── Lipona.md          # Language specification
@@ -51,16 +51,16 @@ cargo watch -x run
 ## Key Concepts
 
 ### Reserved Keywords
-`li`, `e`, `la`, `open`, `pini`, `ilo`, `pali`, `pana`, `wile`, `taso`, `suli`, `lili`, `sama`, `jo`, `lon`, `ala`
+`la`, `open`, `pini`, `ilo`, `pana`, `wile`, `taso`, `suli`, `lili`, `suli_sama`, `lili_sama`, `sama`, `jo`, `lon`, `ala`
 
 ### Core Syntax Patterns
-- Assignment: `x li jo e Expr`
-- Function call: `NAME e (args)`
-- Function def: `ilo NAME li pali e (params) la open ... pini`
+- Assignment: `x jo Expr`
+- Function call: `NAME(args)`
+- Function def: `ilo NAME (params) open ... pini`
 - If/else: `Cond la open ... pini taso open ... pini`
 - While: `wile Cond la open ... pini`
-- Return: `pana e Expr`
-- Compare: `x li suli e y` (>), `x li lili e y` (<), `x li sama e y` (==)
+- Return: `pana Expr`
+- Compare: `x suli y` (>), `x lili y` (<), `x sama y` (==), `x suli_sama y` (>=), `x lili_sama y` (<=)
 
 ### Types
 - Number: `10`, `3.14`
@@ -70,7 +70,7 @@ cargo watch -x run
 ## Implementation Notes
 
 - File extension: `.lipo`
-- Use `nom` or `pest` for parsing
+- Use `pest` for parsing
 - Tree-walking interpreter for MVP
 - All stdlib functions are regular `ilo` (no special syntax)
 
