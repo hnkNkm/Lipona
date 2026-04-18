@@ -13,14 +13,18 @@ stmt = {
     | expr_stmt
 }
 
-// Function definition: ilo NAME (params) open ... pini
+// Function definition: ilo NAME (params) [-> type] open ... pini
+// Each param may have an optional ": type" annotation. Return type is optional.
 func_def = {
-    "ilo" ~ ident ~ "(" ~ param_list? ~ ")" ~ "open" ~
+    "ilo" ~ ident ~ "(" ~ param_list? ~ ")" ~ return_type? ~ "open" ~
     stmt* ~
     "pini"
 }
 
-param_list = { ident ~ ("," ~ ident)* }
+param_list = { param ~ ("," ~ param)* }
+param = { ident ~ (":" ~ type_expr)? }
+type_expr = { ident }
+return_type = { "->" ~ type_expr }
 
 // If statement: Cond la open ... pini taso open ... pini
 if_stmt = {

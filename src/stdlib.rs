@@ -85,13 +85,14 @@ fn stdlib_toki(args: Vec<Value>) -> Result<Value, RuntimeError> {
 fn stdlib_nanpa_sin(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("nanpa_sin", &args, 1)?;
     match &args[0] {
-        Value::String(s) => s
-            .parse::<f64>()
-            .map(Value::Number)
-            .map_err(|_| RuntimeError::TypeError {
-                expected: "valid number string",
-                got: "invalid string".to_string(),
-            }),
+        Value::String(s) => {
+            s.parse::<f64>()
+                .map(Value::Number)
+                .map_err(|_| RuntimeError::TypeError {
+                    expected: "valid number string",
+                    got: "invalid string".to_string(),
+                })
+        }
         Value::Number(n) => Ok(Value::Number(*n)),
         other => Err(RuntimeError::TypeError {
             expected: "sitelen",
@@ -257,9 +258,7 @@ fn stdlib_nasin_sin(args: Vec<Value>) -> Result<Value, RuntimeError> {
 fn stdlib_nasin_ken(args: Vec<Value>) -> Result<Value, RuntimeError> {
     check_arity("nasin_ken", &args, 2)?;
     match (&args[0], &args[1]) {
-        (Value::Map(map), Value::String(key)) => {
-            Ok(map.get(key).cloned().unwrap_or(Value::Ala))
-        }
+        (Value::Map(map), Value::String(key)) => Ok(map.get(key).cloned().unwrap_or(Value::Ala)),
         (Value::Map(_), other) => Err(RuntimeError::TypeError {
             expected: "sitelen",
             got: other.type_name().to_string(),
