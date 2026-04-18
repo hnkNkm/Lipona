@@ -7,7 +7,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use thiserror::Error;
 
-use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart};
+use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart, Type};
 
 #[derive(Parser)]
 #[grammar = "lipona.pest"]
@@ -23,6 +23,8 @@ pub enum ParseError {
     InvalidNumber(String),
     #[error("Invalid boolean: {0}")]
     InvalidBoolean(String),
+    #[error("Unknown type name: '{0}'. Valid types are: nanpa, sitelen, lon, kulupu, nasin, ilo, ala, ijo")]
+    UnknownType(String),
     #[error("Parse error: missing inner element in {0:?}")]
     MissingInner(Rule),
 }
@@ -51,7 +53,10 @@ pub fn parse(input: &str) -> Result<Program, ParseError> {
 }
 
 fn parse_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
-    let inner = pair.into_inner().next().ok_or(ParseError::MissingInner(Rule::stmt))?;
+    let inner = pair
+        .into_inner()
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::stmt))?;
 
     match inner.as_rule() {
         Rule::func_def => parse_func_def(inner),
@@ -60,7 +65,12 @@ fn parse_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
         Rule::return_stmt => parse_return_stmt(inner),
         Rule::assign_stmt => parse_assign_stmt(inner),
         Rule::expr_stmt => {
-            let expr = parse_expr(inner.into_inner().next().ok_or(ParseError::MissingInner(Rule::expr_stmt))?)?;
+            let expr = parse_expr(
+                inner
+                    .into_inner()
+                    .next()
+                    .ok_or(ParseError::MissingInner(Rule::expr_stmt))?,
+            )?;
             Ok(Stmt::Expr(expr))
         }
         rule => Err(ParseError::UnexpectedRule(rule)),
@@ -69,17 +79,43 @@ fn parse_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
 
 fn parse_func_def(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
     let mut inner = pair.into_inner();
-    let name = inner.next().ok_or(ParseError::MissingInner(Rule::func_def))?.as_str().to_string();
+    let name = inner
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::func_def))?
+        .as_str()
+        .to_string();
 
     let mut params = Vec::new();
+    let mut param_types = Vec::new();
+    let mut return_type: Option<Type> = None;
     let mut body = Vec::new();
 
     for item in inner {
         match item.as_rule() {
             Rule::param_list => {
                 for param in item.into_inner() {
-                    params.push(param.as_str().to_string());
+                    // param = { ident ~ (":" ~ type_expr)? }
+                    let mut param_inner = param.into_inner();
+                    let param_name = param_inner
+                        .next()
+                        .ok_or(ParseError::MissingInner(Rule::param))?
+                        .as_str()
+                        .to_string();
+                    let ty = match param_inner.next() {
+                        Some(type_pair) => Some(parse_type_expr(type_pair)?),
+                        None => None,
+                    };
+                    params.push(param_name);
+                    param_types.push(ty);
                 }
+            }
+            Rule::return_type => {
+                // return_type = { "->" ~ type_expr }
+                let type_pair = item
+                    .into_inner()
+                    .next()
+                    .ok_or(ParseError::MissingInner(Rule::return_type))?;
+                return_type = Some(parse_type_expr(type_pair)?);
             }
             Rule::stmt => {
                 body.push(parse_stmt(item)?);
@@ -90,12 +126,32 @@ fn parse_func_def(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError>
         }
     }
 
-    Ok(Stmt::FuncDef { name, params, body })
+    Ok(Stmt::FuncDef {
+        name,
+        params,
+        param_types,
+        return_type,
+        body,
+    })
+}
+
+fn parse_type_expr(pair: pest::iterators::Pair<Rule>) -> Result<Type, ParseError> {
+    // type_expr = { ident }
+    let ident = pair
+        .into_inner()
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::type_expr))?;
+    let name = ident.as_str();
+    Type::from_name(name).ok_or_else(|| ParseError::UnknownType(name.to_string()))
 }
 
 fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
     let mut inner = pair.into_inner();
-    let cond = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::if_stmt))?)?;
+    let cond = parse_expr(
+        inner
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::if_stmt))?,
+    )?;
 
     let mut then_block: Block = Vec::new();
     let mut else_block: Option<Block> = None;
@@ -129,7 +185,11 @@ fn parse_if_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> 
 
 fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
     let mut inner = pair.into_inner();
-    let cond = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::while_stmt))?)?;
+    let cond = parse_expr(
+        inner
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::while_stmt))?,
+    )?;
 
     let mut body = Vec::new();
     for item in inner {
@@ -144,21 +204,37 @@ fn parse_while_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseErro
 }
 
 fn parse_return_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
-    let expr = parse_expr(pair.into_inner().next().ok_or(ParseError::MissingInner(Rule::return_stmt))?)?;
+    let expr = parse_expr(
+        pair.into_inner()
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::return_stmt))?,
+    )?;
     Ok(Stmt::Return(expr))
 }
 
 fn parse_assign_stmt(pair: pest::iterators::Pair<Rule>) -> Result<Stmt, ParseError> {
     let mut inner = pair.into_inner();
-    let target = inner.next().ok_or(ParseError::MissingInner(Rule::assign_stmt))?.as_str().to_string();
-    let value = parse_expr(inner.next().ok_or(ParseError::MissingInner(Rule::assign_stmt))?)?;
+    let target = inner
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::assign_stmt))?
+        .as_str()
+        .to_string();
+    let value = parse_expr(
+        inner
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::assign_stmt))?,
+    )?;
 
     Ok(Stmt::Assign { target, value })
 }
 
 fn parse_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
-        Rule::expr => parse_expr(pair.into_inner().next().ok_or(ParseError::MissingInner(Rule::expr))?),
+        Rule::expr => parse_expr(
+            pair.into_inner()
+                .next()
+                .ok_or(ParseError::MissingInner(Rule::expr))?,
+        ),
         Rule::comparison => parse_comparison(pair),
         Rule::add_expr => parse_add_expr(pair),
         Rule::mul_expr => parse_mul_expr(pair),
@@ -175,7 +251,9 @@ fn parse_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
 
 fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     let mut inner = pair.into_inner();
-    let first = inner.next().ok_or(ParseError::MissingInner(Rule::comparison))?;
+    let first = inner
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::comparison))?;
 
     // Check if there's a comp_op (comparison operator)
     let Some(comp_op) = inner.next() else {
@@ -201,7 +279,9 @@ fn parse_comparison(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
     };
 
     // Get the right operand
-    let right_pair = inner.next().ok_or(ParseError::MissingInner(Rule::comparison))?;
+    let right_pair = inner
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::comparison))?;
     let right = parse_expr(right_pair)?;
 
     Ok(Expr::Binary {
@@ -260,23 +340,34 @@ fn parse_unary_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseErro
 
     if is_negated {
         inner.next(); // consume the "-"
-        let primary = inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?;
+        let primary = inner
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::unary_expr))?;
         let expr = parse_expr(primary)?;
         Ok(Expr::Neg(Box::new(expr)))
     } else {
-        let primary = inner.next().ok_or(ParseError::MissingInner(Rule::unary_expr))?;
+        let primary = inner
+            .next()
+            .ok_or(ParseError::MissingInner(Rule::unary_expr))?;
         parse_expr(primary)
     }
 }
 
 fn parse_primary(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
-    let inner = pair.into_inner().next().ok_or(ParseError::MissingInner(Rule::primary))?;
+    let inner = pair
+        .into_inner()
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::primary))?;
     parse_expr(inner)
 }
 
 fn parse_func_call(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     let mut inner = pair.into_inner();
-    let name = inner.next().ok_or(ParseError::MissingInner(Rule::func_call))?.as_str().to_string();
+    let name = inner
+        .next()
+        .ok_or(ParseError::MissingInner(Rule::func_call))?
+        .as_str()
+        .to_string();
 
     let mut args = Vec::new();
     for item in inner {
@@ -295,7 +386,8 @@ fn parse_func_call(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError
 
 fn parse_number(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     let s = pair.as_str();
-    let n = s.parse::<f64>()
+    let n = s
+        .parse::<f64>()
         .map_err(|_| ParseError::InvalidNumber(s.to_string()))?;
 
     if !n.is_finite() {
@@ -311,10 +403,16 @@ fn parse_string(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::string_inner => {
-                let part = inner.into_inner().next().ok_or(ParseError::MissingInner(Rule::string_inner))?;
+                let part = inner
+                    .into_inner()
+                    .next()
+                    .ok_or(ParseError::MissingInner(Rule::string_inner))?;
                 match part.as_rule() {
                     Rule::interpolation => {
-                        let expr_pair = part.into_inner().next().ok_or(ParseError::MissingInner(Rule::interpolation))?;
+                        let expr_pair = part
+                            .into_inner()
+                            .next()
+                            .ok_or(ParseError::MissingInner(Rule::interpolation))?;
                         let expr = parse_expr(expr_pair)?;
                         parts.push(StringPart::Interpolation(Box::new(expr)));
                     }
@@ -391,5 +489,66 @@ mod tests {
         "#;
         let result = parse(code).unwrap();
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_func_def_with_types() {
+        let code = r#"
+            ilo sum (a: nanpa, b: nanpa) -> nanpa open
+                pana a + b
+            pini
+        "#;
+        let result = parse(code).unwrap();
+        assert_eq!(result.len(), 1);
+        match &result[0] {
+            Stmt::FuncDef {
+                param_types,
+                return_type,
+                ..
+            } => {
+                assert_eq!(param_types.len(), 2);
+                assert_eq!(param_types[0], Some(Type::Nanpa));
+                assert_eq!(param_types[1], Some(Type::Nanpa));
+                assert_eq!(return_type, &Some(Type::Nanpa));
+            }
+            _ => panic!("expected FuncDef"),
+        }
+    }
+
+    #[test]
+    fn test_parse_func_def_mixed_annotations() {
+        // Some params typed, some not. No return type.
+        let code = r#"
+            ilo foo (a: sitelen, b) open
+                pana a
+            pini
+        "#;
+        let result = parse(code).unwrap();
+        match &result[0] {
+            Stmt::FuncDef {
+                param_types,
+                return_type,
+                ..
+            } => {
+                assert_eq!(param_types[0], Some(Type::Sitelen));
+                assert_eq!(param_types[1], None);
+                assert_eq!(return_type, &None);
+            }
+            _ => panic!("expected FuncDef"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unknown_type() {
+        let code = r#"
+            ilo foo (x: bogus) open
+                pana x
+            pini
+        "#;
+        let err = parse(code).unwrap_err();
+        match err {
+            ParseError::UnknownType(name) => assert_eq!(name, "bogus"),
+            other => panic!("expected UnknownType, got {:?}", other),
+        }
     }
 }

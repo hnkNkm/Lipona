@@ -1,0 +1,98 @@
+// Lipona Type System Test
+// Tests runtime type annotations for function parameters and return types
+
+toki("=== nasin pi nasin nimi ===")
+
+// ============================================
+// 1. Basic type annotations
+// ============================================
+toki("")
+toki("--- 1. nasin nimi lili ---")
+
+ilo add (a: nanpa, b: nanpa) -> nanpa open
+    pana a + b
+pini
+
+r1 jo add(10, 20)
+toki("add(10, 20) = {r1}")
+
+// ============================================
+// 2. String typing
+// ============================================
+toki("")
+toki("--- 2. sitelen ---")
+
+ilo greet (name: sitelen) -> sitelen open
+    pana "toki, " + name + "!"
+pini
+
+g jo greet("jan Lipona")
+toki(g)
+
+// ============================================
+// 3. Mixed typed and untyped params
+// ============================================
+toki("")
+toki("--- 3. nimi en nimi ala ---")
+
+// b has no annotation, so accepts anything
+ilo concat_with_num (prefix: sitelen, b) -> sitelen open
+    pana prefix + "{b}"
+pini
+
+c1 jo concat_with_num("value: ", 42)
+c2 jo concat_with_num("flag: ", lon)
+toki(c1)
+toki(c2)
+
+// ============================================
+// 4. ijo (any) type
+// ============================================
+toki("")
+toki("--- 4. ijo ---")
+
+ilo echo (x: ijo) -> ijo open
+    pana x
+pini
+
+e1 jo echo(42)
+e2 jo echo("hi")
+e3 jo echo(lon)
+toki("echo(42) = {e1}")
+toki("echo(hi) = {e2}")
+toki("echo(lon) = {e3}")
+
+// ============================================
+// 5. Recursive typed function
+// ============================================
+toki("")
+toki("--- 5. factorial pi nimi ---")
+
+ilo factorial (n: nanpa) -> nanpa open
+    n lili_sama 1 la open
+        pana 1
+    pini
+    pana n * factorial(n - 1)
+pini
+
+toki("factorial(5) = {factorial(5)}")
+toki("factorial(10) = {factorial(10)}")
+
+// ============================================
+// 6. No return type annotation
+// ============================================
+toki("")
+toki("--- 6. pana ala ---")
+
+ilo print_twice (s: sitelen) open
+    toki(s)
+    toki(s)
+pini
+
+print_twice("pona!")
+
+// ============================================
+// Done!
+// ============================================
+toki("")
+toki("=== pini! nasin nimi li pona ===")

@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart};
+use crate::ast::{BinOp, Block, Expr, Program, Stmt, StringPart, Type};
 use crate::stdlib::StdLib;
 
 /// Runtime value
@@ -23,6 +23,8 @@ pub enum Value {
     /// User-defined function
     Function {
         params: Vec<String>,
+        param_types: Vec<Option<Type>>,
+        return_type: Option<Type>,
         body: Block,
     },
 }
@@ -50,6 +52,18 @@ impl Value {
             Value::Ala => "ala",
             Value::Function { .. } => "ilo",
         }
+    }
+
+    /// Check whether this value matches the given type annotation.
+    ///
+    /// Rules:
+    /// - `ijo` matches anything (any type)
+    /// - otherwise, the value's type name must equal the annotation's name
+    pub fn matches_type(&self, ty: &Type) -> bool {
+        if *ty == Type::Ijo {
+            return true;
+        }
+        self.type_name() == ty.name()
     }
 }
 
@@ -94,12 +108,26 @@ pub enum RuntimeError {
     #[error("pakala: division by zero")]
     DivisionByZero,
     #[error("pakala: type error - expected {expected}, got {got}")]
-    TypeError {
-        expected: &'static str,
+    TypeError { expected: &'static str, got: String },
+    #[error("pakala: wrong number of arguments for '{name}' - expected {expected}, got {got}")]
+    WrongArity {
+        name: String,
+        expected: usize,
+        got: usize,
+    },
+    #[error("pakala_toki: function '{func}' parameter '{param}' expected {expected}, got {got}")]
+    ParamTypeMismatch {
+        func: String,
+        param: String,
+        expected: String,
         got: String,
     },
-    #[error("pakala: wrong number of arguments for '{name}' - expected {expected}, got {got}")]
-    WrongArity { name: String, expected: usize, got: usize },
+    #[error("pakala_toki: function '{func}' expected return type {expected}, got {got}")]
+    ReturnTypeMismatch {
+        func: String,
+        expected: String,
+        got: String,
+    },
     #[error("pakala: index out of bounds - {index} >= {len}")]
     IndexOutOfBounds { index: usize, len: usize },
     #[error("pakala: loop iteration limit exceeded (possible infinite loop)")]
@@ -253,9 +281,17 @@ impl Interpreter {
                 }
                 Ok(ControlFlow::None)
             }
-            Stmt::FuncDef { name, params, body } => {
+            Stmt::FuncDef {
+                name,
+                params,
+                param_types,
+                return_type,
+                body,
+            } => {
                 let func = Value::Function {
                     params: params.clone(),
+                    param_types: param_types.clone(),
+                    return_type: return_type.clone(),
                     body: body.clone(),
                 };
                 self.env.define(name.clone(), func);
@@ -405,7 +441,12 @@ impl Interpreter {
             .ok_or_else(|| RuntimeError::UndefinedFunction(name.to_string()))?;
 
         match func {
-            Value::Function { params, body } => {
+            Value::Function {
+                params,
+                param_types,
+                return_type,
+                body,
+            } => {
                 if params.len() != args.len() {
                     return Err(RuntimeError::WrongArity {
                         name: name.to_string(),
@@ -416,6 +457,24 @@ impl Interpreter {
 
                 // Evaluate arguments in current environment
                 let evaluated_args = self.eval_args(args)?;
+
+                // Check parameter type annotations (skip when annotation is None)
+                for ((param, ty), value) in params
+                    .iter()
+                    .zip(param_types.iter())
+                    .zip(evaluated_args.iter())
+                {
+                    if let Some(expected) = ty {
+                        if !value.matches_type(expected) {
+                            return Err(RuntimeError::ParamTypeMismatch {
+                                func: name.to_string(),
+                                param: param.clone(),
+                                expected: expected.to_string(),
+                                got: value.type_name().to_string(),
+                            });
+                        }
+                    }
+                }
 
                 // Isolate environment for function execution (only global scope visible)
                 let saved_scopes = self.env.isolate_for_function();
@@ -433,10 +492,23 @@ impl Interpreter {
                 self.env.restore_scopes(saved_scopes);
 
                 // Convert result
-                result.map(|cf| match cf {
+                let value = result.map(|cf| match cf {
                     ControlFlow::Return(v) => v,
                     ControlFlow::None => Value::Ala,
-                })
+                })?;
+
+                // Check return type annotation
+                if let Some(expected) = &return_type {
+                    if !value.matches_type(expected) {
+                        return Err(RuntimeError::ReturnTypeMismatch {
+                            func: name.to_string(),
+                            expected: expected.to_string(),
+                            got: value.type_name().to_string(),
+                        });
+                    }
+                }
+
+                Ok(value)
             }
             _ => Err(RuntimeError::TypeError {
                 expected: "ilo",

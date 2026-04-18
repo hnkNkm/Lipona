@@ -131,6 +131,29 @@ pana Expr
 
 pana が実行されなかった場合の戻り値は ala。
 
+### 6.3 型注釈（オプショナル）
+
+関数のパラメータと戻り値にはオプションで型を注釈できる：
+
+ilo NAME (param1: TYPE, param2: TYPE, ...) -> TYPE open
+    Stmt*
+pini
+
+型名は Toki Pona 語彙：nanpa, sitelen, lon, kulupu, nasin, ilo, ala, ijo。
+ijo は any 相当で、任意の値を受け付ける。
+
+例：
+
+ilo sum (a: nanpa, b: nanpa) -> nanpa open
+    pana a + b
+pini
+
+注釈を省略したパラメータは ijo 扱い（型チェックをスキップ）。
+戻り値の注釈 -> TYPE も省略可能。
+
+型に違反した場合は実行時エラー pakala_toki を発生させる。
+既存の注釈なしコードは一切影響を受けない（後方互換）。
+
 ---
 
 ## 7. 標準ライブラリ（MVP最小セット）
