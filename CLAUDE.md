@@ -44,9 +44,15 @@ The pipeline is: source → `pest` PEG parse → AST → tree-walking interprete
 
 Comparison operators return `Value::Bool` for true, `Value::Ala` for false. `Value::is_truthy()` treats `Ala`, `0`, `""`, empty list/map as falsy. Keep this in mind when touching the interpreter — conflating these will break conditionals.
 
-### Function call isolation
+### Closure environment snapshot
 
-User-defined function calls use `Environment::isolate_for_function()`: all current scopes are saved, then replaced with a clone of only the global scope for the duration of the call. This is why recursion works correctly and why local variables don't leak between function calls. `restore_scopes()` must always be paired with it. Stdlib calls do **not** isolate — they operate on evaluated argument values only.
+`Value::Function` carries a `captured: Vec<HashMap<String, Value>>` field — a snapshot of the scope stack taken when the function value is created (for named `FuncDef` and anonymous `Expr::Lambda` alike). On call, the interpreter swaps `captured` into the current scope stack, pushes a fresh inner scope for the parameters, runs the body, and restores the caller's scopes via `Environment::replace_scopes()`.
+
+Two subtleties:
+- **Recursion** — a `FuncDef` is first `define`d with `Value::Ala` under its name, *then* the captured snapshot is taken (so the name is already in scope), *then* the real `Value::Function` replaces the placeholder. The function sees itself through the captured env.
+- **Live globals for recursion / top-level mutation** — on every call, the captured snapshot's global scope (index 0) is refreshed from the caller's current globals before executing. So later-defined top-level bindings (including the callee itself after its `Value::Function` is bound) are visible, and a function that was originally captured before its siblings existed can still call them.
+
+Stdlib calls do **not** swap scopes — they operate on evaluated argument values only.
 
 ### Safety limits
 
@@ -59,6 +65,7 @@ Hardcoded in `interpreter.rs`: `MAX_LOOP_ITERATIONS = 10_000_000`, `MAX_CALL_DEP
 - If/else: `Cond la open ... pini taso open ... pini` (the `taso` block is optional)
 - While: `wile Cond la open ... pini`
 - Function def: `ilo NAME (params) open ... pini`; return: `pana Expr`; implicit return is `ala`
+- Lambda (anonymous function expression): `ilo (params) open ... pini` — evaluates to a callable `Value::Function`. Bind it with `f jo ilo (...) open ... pini`, pass it as an argument, or return it. Calls still require an identifier callee: `f(a, b)` (not `(expr)(a, b)`).
 - Comparisons: `suli` (>), `lili` (<), `suli_sama` (>=), `lili_sama` (<=), `sama` (==). No `!=`.
 - Template strings: `"Hello, {name}!"` — `{...}` interpolates any expression. Escapes: `\n \t \r \\ \" \{ \}`
 - Types: Number (f64), String, `lon`, `ala`, kulupu (list), nasin (map), ilo (function)
