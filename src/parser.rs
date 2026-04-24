@@ -241,6 +241,7 @@ fn parse_expr(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
         Rule::unary_expr => parse_unary_expr(pair),
         Rule::primary => parse_primary(pair),
         Rule::func_call => parse_func_call(pair),
+        Rule::lambda => parse_lambda(pair),
         Rule::number => parse_number(pair),
         Rule::string => parse_string(pair),
         Rule::boolean => parse_boolean(pair),
@@ -359,6 +360,54 @@ fn parse_primary(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> 
         .next()
         .ok_or(ParseError::MissingInner(Rule::primary))?;
     parse_expr(inner)
+}
+
+fn parse_lambda(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {
+    // lambda = { "ilo" ~ "(" ~ param_list? ~ ")" ~ return_type? ~ "open" ~ stmt* ~ "pini" }
+    // Same shape as func_def but without a leading identifier.
+    let mut params: Vec<String> = Vec::new();
+    let mut param_types: Vec<Option<Type>> = Vec::new();
+    let mut return_type: Option<Type> = None;
+    let mut body: Block = Vec::new();
+
+    for item in pair.into_inner() {
+        match item.as_rule() {
+            Rule::param_list => {
+                for param in item.into_inner() {
+                    let mut param_inner = param.into_inner();
+                    let param_name = param_inner
+                        .next()
+                        .ok_or(ParseError::MissingInner(Rule::param))?
+                        .as_str()
+                        .to_string();
+                    let ty = match param_inner.next() {
+                        Some(type_pair) => Some(parse_type_expr(type_pair)?),
+                        None => None,
+                    };
+                    params.push(param_name);
+                    param_types.push(ty);
+                }
+            }
+            Rule::return_type => {
+                let type_pair = item
+                    .into_inner()
+                    .next()
+                    .ok_or(ParseError::MissingInner(Rule::return_type))?;
+                return_type = Some(parse_type_expr(type_pair)?);
+            }
+            Rule::stmt => {
+                body.push(parse_stmt(item)?);
+            }
+            rule => return Err(ParseError::UnexpectedRule(rule)),
+        }
+    }
+
+    Ok(Expr::Lambda {
+        params,
+        param_types,
+        return_type,
+        body,
+    })
 }
 
 fn parse_func_call(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ParseError> {

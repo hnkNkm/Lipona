@@ -376,6 +376,18 @@ impl Interpreter {
             }
             Expr::Binary { left, op, right } => self.eval_binary(left, op, right),
             Expr::FuncCall { name, args } => self.call_function(name, args),
+            Expr::Lambda {
+                params,
+                param_types,
+                return_type,
+                body,
+            } => Ok(Value::Function {
+                params: params.clone(),
+                param_types: param_types.clone(),
+                return_type: return_type.clone(),
+                body: body.clone(),
+                captured: self.env.snapshot(),
+            }),
         }
     }
 
