@@ -20,12 +20,18 @@ pub enum Value {
     Map(HashMap<String, Value>),
     /// ala represents null/false/empty
     Ala,
-    /// User-defined function
+    /// User-defined function (or lambda).
+    ///
+    /// `captured` is a snapshot of the scope stack at the time the function
+    /// was created. This is used when the function is invoked so that free
+    /// variables resolve to the creation-time environment (lexical scoping),
+    /// rather than to whatever environment the call site happens to be in.
     Function {
         params: Vec<String>,
         param_types: Vec<Option<Type>>,
         return_type: Option<Type>,
         body: Block,
+        captured: Vec<HashMap<String, Value>>,
     },
 }
 
@@ -194,18 +200,32 @@ impl Environment {
         self.define(name.to_string(), value);
     }
 
-    /// Create an isolated environment for function calls.
-    /// Returns saved scopes that must be restored after function execution.
-    pub fn isolate_for_function(&mut self) -> Vec<HashMap<String, Value>> {
-        let saved_scopes = std::mem::take(&mut self.scopes);
-        // Keep only global scope for function execution
-        self.scopes = vec![saved_scopes[0].clone()];
-        saved_scopes
+    /// Take a snapshot of the current scope stack (used when building a
+    /// function value to capture its lexical environment).
+    pub fn snapshot(&self) -> Vec<HashMap<String, Value>> {
+        self.scopes.clone()
     }
 
-    /// Restore scopes after function execution.
-    pub fn restore_scopes(&mut self, saved_scopes: Vec<HashMap<String, Value>>) {
-        self.scopes = saved_scopes;
+    /// Replace the current scope stack and return the previous one.
+    ///
+    /// Used to enter a function call with the callee's captured environment,
+    /// and to restore the caller's environment on return.
+    pub fn replace_scopes(
+        &mut self,
+        new_scopes: Vec<HashMap<String, Value>>,
+    ) -> Vec<HashMap<String, Value>> {
+        std::mem::replace(&mut self.scopes, new_scopes)
+    }
+
+    /// Return a reference to the current global scope (scope index 0).
+    ///
+    /// Used when entering a function call to refresh the captured snapshot's
+    /// global scope to the live one, so top-level bindings — including the
+    /// function itself (for recursion) — remain visible.
+    pub fn global_scope(&self) -> &HashMap<String, Value> {
+        self.scopes
+            .first()
+            .expect("Environment must have at least one scope")
     }
 }
 
@@ -288,13 +308,20 @@ impl Interpreter {
                 return_type,
                 body,
             } => {
+                // Tentatively bind the function name to ala first, then take
+                // an environment snapshot that already includes the new name.
+                // This lets the function's own body resolve recursive calls
+                // through the captured environment.
+                self.env.define(name.clone(), Value::Ala);
+                let captured = self.env.snapshot();
                 let func = Value::Function {
                     params: params.clone(),
                     param_types: param_types.clone(),
                     return_type: return_type.clone(),
                     body: body.clone(),
+                    captured,
                 };
-                self.env.define(name.clone(), func);
+                self.env.set(name, func);
                 Ok(ControlFlow::None)
             }
             Stmt::Return(expr) => {
@@ -446,6 +473,7 @@ impl Interpreter {
                 param_types,
                 return_type,
                 body,
+                captured,
             } => {
                 if params.len() != args.len() {
                     return Err(RuntimeError::WrongArity {
@@ -476,10 +504,18 @@ impl Interpreter {
                     }
                 }
 
-                // Isolate environment for function execution (only global scope visible)
-                let saved_scopes = self.env.isolate_for_function();
+                // Swap in the function's captured environment (lexical
+                // scoping). The captured snapshot's global scope (index 0)
+                // is refreshed from the caller's current globals so that
+                // top-level definitions and mutations made after the
+                // function was created — including the function itself for
+                // recursion — are still visible inside the call.
+                let mut call_scopes = captured;
+                if !call_scopes.is_empty() {
+                    call_scopes[0] = self.env.global_scope().clone();
+                }
+                let saved_scopes = self.env.replace_scopes(call_scopes);
 
-                // Create function scope and bind parameters
                 self.env.push_scope();
                 for (param, value) in params.iter().zip(evaluated_args) {
                     self.env.define(param.clone(), value);
@@ -488,8 +524,8 @@ impl Interpreter {
                 // Execute function body
                 let result = self.exec_block_in_current_scope(&body);
 
-                // Restore original scopes
-                self.env.restore_scopes(saved_scopes);
+                // Restore the caller's scope stack.
+                self.env.replace_scopes(saved_scopes);
 
                 // Convert result
                 let value = result.map(|cf| match cf {
