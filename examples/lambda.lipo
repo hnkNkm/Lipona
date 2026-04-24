@@ -1,0 +1,16 @@
+// ilo pi nimi ala (lambda): ラムダリテラルの基本
+// ilo (params) open ... pini は式として使える。
+// 変数に束縛したり、引数として渡したりできる。
+
+// 変数に束縛
+inc jo ilo (n) open pana n + 1 pini
+toki("inc(41) = {inc(41)}")
+
+// 型注釈つきラムダも可
+square jo ilo (n: nanpa) -> nanpa open pana n * n pini
+toki("square(9) = {square(9)}")
+
+// 変数経由で呼び出す（現状の文法では callee は識別子のみ）
+mul jo ilo (a, b) open pana a * b pini
+product jo mul(2, 3)
+toki("2 * 3 = {product}")

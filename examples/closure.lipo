@@ -1,0 +1,19 @@
+// ilo pi lon ante (closure): 外側の変数をキャプチャする関数
+// 関数が作られた時点の環境を保持することを確認する。
+
+// make_adder(x) は「y を加えたら x+y を返す」ラムダを返す。
+ilo make_adder (x) open
+    pana ilo (y) open pana x + y pini
+pini
+
+add5 jo make_adder(5)
+add10 jo make_adder(10)
+
+r1 jo add5(37)
+r2 jo add10(32)
+toki("add5(37) = {r1}")
+toki("add10(32) = {r2}")
+
+// 同じラムダを複数回呼んでも x は作成時にキャプチャされたまま
+r3 jo add5(100)
+toki("add5(100) = {r3}")

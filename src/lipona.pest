@@ -71,12 +71,22 @@ mul_op = { "*" | "/" }
 unary_expr = { "-"? ~ primary }
 
 primary = {
-    func_call
+    lambda
+    | func_call
     | "(" ~ expr ~ ")"
     | number
     | string
     | boolean
     | ident
+}
+
+// Anonymous function (lambda) literal: ilo (params) [-> type] open ... pini
+// Distinguished from `func_def` by the absence of an identifier between
+// `ilo` and `(`.
+lambda = {
+    "ilo" ~ "(" ~ param_list? ~ ")" ~ return_type? ~ "open" ~
+    stmt* ~
+    "pini"
 }
 
 // Function call: NAME(args)

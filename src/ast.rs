@@ -110,6 +110,16 @@ pub enum Expr {
     Neg(Box<Expr>),
     /// Function call: NAME e (args)
     FuncCall { name: String, args: Vec<Expr> },
+    /// Anonymous function literal (lambda): ilo (params) [-> type] open ... pini
+    ///
+    /// Evaluates to a `Value::Function` whose `captured` field is a snapshot
+    /// of the enclosing scope stack.
+    Lambda {
+        params: Vec<String>,
+        param_types: Vec<Option<Type>>,
+        return_type: Option<Type>,
+        body: Block,
+    },
 }
 
 /// Statement AST node

@@ -1,0 +1,19 @@
+// ilo pi ilo ante (higher-order function): 関数を引数に取る関数
+// 第一級関数が使えることを確認する。
+
+// 関数を引数に取る apply: f(x) を評価する
+ilo apply (f, x) open
+    pana f(x)
+pini
+
+double jo ilo (n) open pana n * 2 pini
+triple jo ilo (n) open pana n * 3 pini
+
+r1 jo apply(double, 7)
+r2 jo apply(triple, 7)
+toki("double(7) = {r1}")
+toki("triple(7) = {r2}")
+
+// ラムダを直接渡す
+r3 jo apply(ilo (n) open pana n + 100 pini, 7)
+toki("lambda(7) = {r3}")
